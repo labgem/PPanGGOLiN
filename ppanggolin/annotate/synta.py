@@ -7,7 +7,6 @@ import tempfile
 from io import TextIOWrapper
 from multiprocessing import Value
 from subprocess import Popen, PIPE
-import ast
 from collections import defaultdict, Counter
 from typing import Dict, List, Optional, Union, Generator, Tuple
 from pathlib import Path
@@ -15,6 +14,7 @@ import shutil
 
 # install libraries
 from pyrodigal import GeneFinder, Sequence
+from pyaragorn import RNAFinder
 
 # local libraries
 from ppanggolin.genome import Organism, Gene, RNA, Contig
@@ -40,7 +40,7 @@ def reverse_complement(seq: str):
 
     :return: reverse sequence
     """
-
+    seq = seq.upper()
     complement = {
         "A": "T",
         "C": "G",
@@ -66,64 +66,55 @@ def reverse_complement(seq: str):
 
 
 def launch_aragorn(
-    fna_file: str, org: Organism, contig_to_length: Dict[str, int]
+    contig_sequences: Dict[str, str], org: Organism, contig_to_length: Dict[str, int]
 ) -> defaultdict:
     """
-    Launches Aragorn to annotate tRNAs.
+    Launches Aragorn to annotate tRNAs using pyaragorn.
 
-    :param fna_file: file-like object containing the uncompressed fasta sequences
+    :param contig_sequences: Dict containing contig sequences
     :param org: Organism which will be annotated
+    :param contig_to_length: Dict mapping contig names to their lengths
 
     :return: Annotated genes in a list of gene objects
     """
     locustag = org.name
-    cmd = ["aragorn", "-t", "-gcbact", "-l", "-w", fna_file]
-    logging.getLogger("PPanGGOLiN").debug(f"aragorn command : {' '.join(cmd)}")
+    rna_finder = RNAFinder(
+        translation_table=11,
+        trna=True,
+        tmrna=False,
+        linear=True,
+    )
 
-    if shutil.which("aragorn") is None:
-        raise FileNotFoundError(
-            f"Command 'aragorn' not found. Please install it and try again."
-        )
-
-    p = Popen(cmd, stdout=PIPE)
-    # loading the whole thing, reverting it to 'pop' in order.
-    file_data = p.communicate()[0].decode().split("\n")[::-1]
     gene_objs = defaultdict(set)
     c = 0
-    contig_name = ""
-    while len(file_data) != 0:
-        line = file_data.pop()
-        if line.startswith(">"):
-            contig_name = line.replace(">", "").split()[0]
-            file_data.pop()  # then next line must be removed too.
-        elif len(line) > 0:  # if the line isn't empty, there's data to get.
-            line_data = line.split()
-            start, stop = map(int, ast.literal_eval(line_data[2].replace("c", "")))
+    for contig_name, sequence in contig_sequences.items():
+        contig_length = contig_to_length[contig_name]
+        genes = rna_finder.find_rna(sequence)
+        for g in genes:
+            start = g.begin
+            stop = g.end
             if start < 1 or stop < 1:
-                # In some case aragorn gives negative coordinates. This case is just ignored.
+                # In some case aragorn gives non valid coordinates. This case is just ignored.
                 logging.warning(
-                    f"Aragorn gives non valid coordinates for a RNA gene in contig {contig_name}: {line_data}. This RNA is ignored."
+                    f"Aragorn gives non valid coordinates for a RNA gene in contig {contig_name}: "
+                    f"begin={g.begin} end={g.end} strand={g.strand}. This RNA is ignored."
                 )
                 continue
-            if (
-                start > contig_to_length[contig_name]
-                or stop > contig_to_length[contig_name]
-            ):
+            if start > contig_length or stop > contig_length:
                 logging.warning(
                     f"Aragorn gives non valide coordinates for a RNA gene in contig {contig_name}. "
-                    f"Gene coordinates exceed contig length ({contig_to_length[contig_name]}): "
-                    f"{line_data}. This RNA is ignored."
+                    f"Gene coordinates exceed contig length ({contig_length}): "
+                    f"begin={g.begin} end={g.end}. This RNA is ignored."
                 )
                 continue
-
             c += 1
             gene = RNA(rna_id=locustag + "_tRNA_" + str(c).zfill(4))
             gene.fill_annotations(
                 start=start,
                 stop=stop,
-                strand="-" if line_data[2].startswith("c") else "+",
-                gene_type="tRNA",
-                product=line_data[1] + line_data[4],
+                strand="-" if g.strand == -1 else "+",
+                gene_type=g.type,
+                product=f"{g.type}-{g.amino_acid}({g.anticodon})",
             )
             gene_objs[contig_name].add(gene)
     return gene_objs
@@ -278,32 +269,8 @@ def launch_infernal(
     return gene_objs
 
 
-def check_sequence_tuple(name: str, sequence: str):
-    """
-    Checks and validates a sequence name and its corresponding sequence.
-
-    :param name: The name (header) of the sequence, typically extracted from the FASTA file header.
-    :param sequence: The sequence string corresponding to the name, containing the nucleotide or protein sequence.
-
-    :return: A tuple containing the validated name and sequence.
-
-    :raises ValueError:
-        - If the sequence is empty, a ValueError is raised with a message containing the header name.
-        - If the name is empty, a ValueError is raised with a message containing a preview of the sequence.
-    """
-    if not sequence:
-        raise ValueError(f"Found an empty sequence with header '{name}'")
-
-    if not name:
-        raise ValueError(
-            f"Found a sequence with empty name (sequence starts as '{sequence[:60]}')"
-        )
-
-    return name, sequence
-
-
 def parse_fasta(
-    fna_file: Union[TextIOWrapper, list]
+    fna_file: Union[TextIOWrapper, list],
 ) -> Generator[Tuple[str, str], None, None]:
     """Yields each sequence name and sequence from a FASTA file or stream as a tuple.
 
@@ -311,35 +278,98 @@ def parse_fasta(
     :yield: Tuple with contig header (without '>') and sequence.
     :raises ValueError: If the file does not contain valid FASTA format.
     """
+    source_name = getattr(fna_file, "name", None)
+
+    def validate_sequence(name: str, sequence: str):
+        if not name:
+            if source_name:
+                raise ValueError(
+                    f"Malformed FASTA header in '{source_name}': a contig name is empty. "
+                    "Each FASTA header must start with '>' and contain a contig name."
+                )
+            raise ValueError(
+                "Malformed FASTA header: a contig name is empty. "
+                "Each FASTA header must start with '>' and contain a contig name."
+            )
+
+        if not sequence:
+            if source_name:
+                raise ValueError(
+                    f"Malformed FASTA record for contig '{name}' in '{source_name}': the sequence is empty. "
+                    "Each contig entry must contain at least one nucleotide or amino-acid base."
+                )
+            raise ValueError(
+                f"Malformed FASTA record for contig '{name}': the sequence is empty. "
+                "Each contig entry must contain at least one nucleotide or amino-acid base."
+            )
+
+        return name, sequence
+
     name = None
     sequence = ""
+    saw_header = False
 
-    for line in fna_file:
+    for line_number, line in enumerate(fna_file, start=1):
         line = line.strip()
 
-        if line.startswith(">"):  # New header
-            if name:  # Yield previous header and sequence if available
-                yield check_sequence_tuple(name, sequence)
+        if not line:
+            continue
 
-            name = line[1:].split()[
-                0
-            ]  # Strip '>' and extract the first word as the name
+        if line.startswith(">"):
+            if name is not None:
+                yield validate_sequence(name, sequence)
+            raw_name = line[1:].strip()
+            if not raw_name:
+                if source_name:
+                    raise ValueError(
+                        f"Malformed FASTA header in '{source_name}' on line {line_number}: header is empty. "
+                        "Each record must start with '>' followed by a contig name."
+                    )
+                raise ValueError(
+                    f"Malformed FASTA header on line {line_number}: header is empty. "
+                    "Each record must start with '>' followed by a contig name."
+                )
+            name = raw_name.split()[0]
+            if not name:
+                if source_name:
+                    raise ValueError(
+                        f"Malformed FASTA header in '{source_name}' on line {line_number}: the contig name is empty or blank. "
+                        "Please provide a valid header such as '>contig_1'."
+                    )
+                raise ValueError(
+                    f"Malformed FASTA header on line {line_number}: the contig name is empty or blank. "
+                    "Please provide a valid header such as '>contig_1'."
+                )
+            saw_header = True
             sequence = ""
+            continue
 
-        elif line:  # Only append non-empty lines
-            sequence += line
+        if name is None:
+            if source_name:
+                raise ValueError(
+                    f"Malformed FASTA content in '{source_name}' on line {line_number}: found sequence data before any '>' header. "
+                    "FASTA records must begin with a header such as '>contig_1'."
+                )
+            raise ValueError(
+                f"Malformed FASTA content on line {line_number}: found sequence data before any '>' header. "
+                "FASTA records must begin with a header such as '>contig_1'."
+            )
 
-        else:
-            # You can skip or handle empty lines here if required
-            pass
+        sequence += line
 
-    # Yield the final contig if exists
-    if name:
-        yield check_sequence_tuple(name, sequence)
+    if name is not None:
+        yield validate_sequence(name, sequence)
 
-    # Check if there was any valid data (at least one header and sequence)
-    if not name:
-        raise ValueError("The file does not contain any valid FASTA content.")
+    if not saw_header:
+        if source_name:
+            raise ValueError(
+                f"The file '{source_name}' does not contain any valid FASTA content. "
+                "Expected at least one header line starting with '>'."
+            )
+        raise ValueError(
+            f"The file '{source_name}' does not contain any valid FASTA content. "
+            "Expected at least one header line starting with '>'."
+        )
 
 
 def get_contigs_from_fasta_file(
@@ -438,7 +468,9 @@ def syntaxic_annotation(
         }
 
         for contig_name, genes_from_contig in launch_aragorn(
-            fna_file=fasta_file.name, org=org, contig_to_length=contig_to_length
+            contig_sequences=contig_sequences,
+            org=org,
+            contig_to_length=contig_to_length,
         ).items():
             genes[contig_name].extend(genes_from_contig)
         for contig_name, genes_from_contig in launch_infernal(
@@ -549,7 +581,7 @@ def annotate_organism(
     """
 
     if not norna:
-        check_tools_availability({"aragorn": "", "cmscan": " from the tool Infernal"})
+        check_tools_availability({"cmscan": " from the tool Infernal"})
 
     org = Organism(org_name)
 

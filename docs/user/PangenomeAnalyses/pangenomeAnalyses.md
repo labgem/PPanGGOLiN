@@ -27,10 +27,10 @@
 ```{include} ./pangenomeStat.md
 ```
 
-```{include} ./pangenomeFigures.md
+```{include} ./pangenomeGraphOut.md
 ```
 
-```{include} ./pangenomeGraphOut.md
+```{include} ./pangenomeFigures.md
 ```
 
 ## Pangenome metrics

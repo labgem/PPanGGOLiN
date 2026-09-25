@@ -1,14 +1,11 @@
 import pytest
 from pathlib import Path
+import gb_io
 
 from ppanggolin.genome import Contig
 from ppanggolin.annotate.annotate import (
     extract_positions,
     read_anno_file,
-    parse_contig_header_lines,
-    parse_gbff_by_contig,
-    parse_feature_lines,
-    parse_dna_seq_lines,
     read_org_gbff,
     combine_contigs_metadata,
     fix_partial_gene_coordinates,
@@ -16,61 +13,127 @@ from ppanggolin.annotate.annotate import (
     shift_end_coordinates,
 )
 
-from ppanggolin.annotate.synta import check_sequence_tuple, parse_fasta
+from ppanggolin.annotate.synta import parse_fasta
 
 
 @pytest.mark.parametrize(
     "input_string, expected_positions, expected_complement, expected_partialgene_start, expected_partialgene_end",
     [
         (
-            "join(190..7695,7695..12071)",
+            gb_io.Join(
+                [
+                    gb_io.Range(189, 7695),
+                    gb_io.Range(7694, 12071),
+                ]
+            ),
             [(190, 7695), (7695, 12071)],
             False,
             False,
             False,
         ),
         (
-            "order(190..7695,7995..12071)",
+            gb_io.Order(
+                [
+                    gb_io.Range(189, 7695),
+                    gb_io.Range(7994, 12071),
+                ]
+            ),
             [(190, 7695), (7995, 12071)],
             False,
             False,
             False,
         ),
         (
-            "complement(join(4359800..4360707,4360707..4360962,1..100))",
+            gb_io.Complement(
+                gb_io.Join(
+                    [
+                        gb_io.Range(4359799, 4360707),
+                        gb_io.Range(4360706, 4360962),
+                        gb_io.Range(0, 100),
+                    ]
+                )
+            ),
             [(4359800, 4360707), (4360707, 4360962), (1, 100)],
             True,
             False,
             False,
         ),
         (
-            "complement(order(4359800..4360707,4360707..4360962,1..100))",
+            gb_io.Complement(
+                gb_io.Join(
+                    [
+                        gb_io.Range(4359799, 4360707),
+                        gb_io.Range(4360706, 4360962),
+                        gb_io.Range(0, 100),
+                    ]
+                )
+            ),
             [(4359800, 4360707), (4360707, 4360962), (1, 100)],
             True,
             False,
             False,
         ),
         (
-            "join(6835405..6835731,1..1218)",
+            gb_io.Join(
+                [
+                    gb_io.Range(6835404, 6835731),
+                    gb_io.Range(0, 1218),
+                ]
+            ),
             [(6835405, 6835731), (1, 1218)],
             False,
             False,
             False,
         ),
         (
-            "join(1375484..1375555,1375557..1376579)",
+            gb_io.Join(
+                [
+                    gb_io.Range(1375483, 1375555),
+                    gb_io.Range(1375556, 1376579),
+                ]
+            ),
             [(1375484, 1375555), (1375557, 1376579)],
             False,
             False,
             False,
         ),
-        ("complement(6815492..6816265)", [(6815492, 6816265)], True, False, False),
-        ("6811501..6812109", [(6811501, 6812109)], False, False, False),
-        ("complement(6792573..>6795461)", [(6792573, 6795461)], True, False, True),
-        ("complement(<6792573..6795461)", [(6792573, 6795461)], True, True, False),
-        ("complement(<6792573..>6795461)", [(6792573, 6795461)], True, True, True),
-        ("join(1038313,1..1016)", [(1038313, 1038313), (1, 1016)], False, False, False),
-        ("1038313", [(1038313, 1038313)], False, False, False),
+        (
+            gb_io.Complement(gb_io.Range(6815491, 6816265)),
+            [(6815492, 6816265)],
+            True,
+            False,
+            False,
+        ),
+        (gb_io.Range(6811500, 6812109), [(6811501, 6812109)], False, False, False),
+        (
+            gb_io.Complement(gb_io.Range(6792572, 6795461, after=True)),
+            [(6792573, 6795461)],
+            True,
+            False,
+            True,
+        ),
+        (
+            gb_io.Complement(gb_io.Range(6792572, 6795461, before=True)),
+            [(6792573, 6795461)],
+            True,
+            True,
+            False,
+        ),
+        (
+            gb_io.Complement(gb_io.Range(6792572, 6795461, before=True, after=True)),
+            [(6792573, 6795461)],
+            True,
+            True,
+            True,
+        ),
+        (
+            gb_io.Join([gb_io.Range(1038312, 1038313), gb_io.Range(0, 1016)]),
+            [(1038313, 1038313), (1, 1016)],
+            False,
+            False,
+            False,
+        ),
+        (gb_io.Range(1038312, 1038313), [(1038313, 1038313)], False, False, False),
     ],
 )
 def test_extract_positions(
@@ -91,38 +154,11 @@ def test_extract_positions(
 
 def test_extract_positions_with_wrong_positions_format():
     with pytest.raises(ValueError):
-        extract_positions("join(1038313,1..1016")  # string misses a closing parenthesis
-
-
-def test_extract_positions_with_strange_chevrons():
+        extract_positions("join(1038313..1016")  # string instead of object
     with pytest.raises(ValueError):
-        extract_positions(
-            "complement(join(4359800..>4360707,1..100))"
-        )  # chevron in inner position
+        extract_positions(None)  # None instead of object
     with pytest.raises(ValueError):
-        extract_positions(
-            "complement(join(4359800..4360707,<1..100))"
-        )  # chevron in inner position
-
-    with pytest.raises(ValueError):
-        extract_positions(
-            "complement(join(4359800..4360707,1..<100))"
-        )  # start chevron in ending position
-
-
-def test_extract_positions_with_wrong_positions_format2():
-    with pytest.raises(ValueError):
-        extract_positions("start..stop")  # start and stop are not integer
-    with pytest.raises(ValueError):
-        extract_positions(
-            "complement(join(start..6816265, 1..stop))"
-        )  # start and stop are not integer
-    with pytest.raises(ValueError):
-        extract_positions("start..stop")  # start and stop are not integer
-    with pytest.raises(ValueError):
-        extract_positions(
-            "complement(join(start..6816265, 1..stop))"
-        )  # start and stop are not integer
+        extract_positions([1, 4])  # list instead of object
 
 
 @pytest.fixture
@@ -212,170 +248,6 @@ def test_read_org_gbff(genome_data_with_joined_genes):
 
     # this genome has 2 genes that are joined.
     assert genome.number_of_genes() == 917
-
-
-def test_gbff_header_parser():
-    header_lines = [
-        "LOCUS       NC_022109            1041595 bp    DNA     circular CON 24-MAR-2017",
-        "DEFINITION  Chlamydia trachomatis strain D/14-96 genome.",
-        "VERSION     NC_022109.1",
-        "SOURCE      Chlamydia trachomatis",
-        "  ORGANISM  Chlamydia trachomatis",
-        "            Bacteria; Chlamydiae; Chlamydiales; Chlamydiaceae;",
-        "            Chlamydia/Chlamydophila group; Chlamydia.",
-    ]
-
-    parsed_header = parse_contig_header_lines(header_lines)
-
-    assert parsed_header == {
-        "LOCUS": "NC_022109            1041595 bp    DNA     circular CON 24-MAR-2017",
-        "DEFINITION": "Chlamydia trachomatis strain D/14-96 genome.",
-        "VERSION": "NC_022109.1",
-        "SOURCE": "Chlamydia trachomatis",
-        "ORGANISM": "Chlamydia trachomatis\nBacteria; Chlamydiae; Chlamydiales; Chlamydiaceae;\nChlamydia/Chlamydophila group; Chlamydia.",
-    }
-
-
-# Define test data
-@pytest.fixture
-def sample_gbff_path(tmp_path):
-    gbff_content = """LOCUS       NC_022109            1041595 bp    DNA     circular CON 24-MAR-2017
-DEFINITION  Chlamydia trachomatis strain D/14-96 genome.
-ACCESSION   NC_022109
-VERSION     NC_022109.1
-KEYWORDS    RefSeq.
-SOURCE      Chlamydia trachomatis
-FEATURES             Location/Qualifiers
-     source          1..1041595
-                     /organism="Chlamydia trachomatis"
-                     /mol_type="genomic DNA"
-ORIGIN
-        1 aaaccgggtt
-       11 ccaaatttgg
-//
-LOCUS       NC_022110            2041595 bp    DNA     circular CON 24-MAR-2017
-DEFINITION  Another genome.
-KEYWORDS    RefSeq.
-SOURCE      Chlamydia trachomatis
-  ORGANISM  Chlamydia trachomatis
-            Bacteria; Chlamydiae; Chlamydiales; Chlamydiaceae;
-            Chlamydia/Chlamydophila group; Chlamydia.
-FEATURES             Location/Qualifiers
-     source          1..2041595
-                     /organism="Chlamydia trachomatis"
-                     /mol_type="genomic DNA"
-ORIGIN
-        1 aaaccgggtt
-       11 ccaaatttgg
-       21 ggcccctttt
-//
-"""
-
-    gbff_file_path = tmp_path / "sample.gbff"
-    with open(gbff_file_path, "w") as f:
-        f.write(gbff_content)
-    return gbff_file_path
-
-
-# Define test cases
-def test_parse_gbff_by_contig(sample_gbff_path):
-    contigs = list(parse_gbff_by_contig(sample_gbff_path))
-
-    assert len(contigs) == 2
-
-    # Check first contig
-    header_1, feature_1, sequence_1 = contigs[0]
-    assert len(header_1) == 6
-    assert len(list(feature_1)) == 1
-    assert sequence_1 == "AAACCGGGTTCCAAATTTGG"
-
-    # Check second contig
-    header_2, feature_2, sequence_2 = contigs[1]
-    assert len(header_2) == 5
-    assert list(feature_2) == [
-        {
-            "feature_type": "source",
-            "location": "1..2041595",
-            "organism": "Chlamydia trachomatis",
-            "mol_type": "genomic DNA",
-        }
-    ]
-
-    assert sequence_2 == "AAACCGGGTTCCAAATTTGGGGCCCCTTTT"
-
-
-# Define test cases
-@pytest.mark.parametrize(
-    "input_lines, expected_output",
-    [
-        (
-            [
-                "     gene            123..456",
-                "                     /locus_tag=ABC123",
-                "                     /note=Some note",
-                "     CDS             789..1011",
-                "                     /protein_id=DEF456",
-                "                     /translation=ATGCTAGCATCG",
-            ],
-            [
-                {
-                    "feature_type": "gene",
-                    "location": "123..456",
-                    "locus_tag": "ABC123",
-                    "note": "Some note",
-                },
-                {
-                    "feature_type": "CDS",
-                    "location": "789..1011",
-                    "protein_id": "DEF456",
-                    "translation": "ATGCTAGCATCG",
-                },
-            ],
-        ),
-        (
-            [
-                "     gene            123..456",
-                "                     /locus_tag=ABC123",
-                "                     /note=Some note",
-                "     CDS             789..1011",
-                '                     /protein_id="DEF456"',
-                '                     /translation="ATGCTAGCATCG"',
-                "     gene            789..1011",
-                "                     /locus_tag=DEF789",
-                "                     /note=Another note",
-            ],
-            [
-                {
-                    "feature_type": "gene",
-                    "location": "123..456",
-                    "locus_tag": "ABC123",
-                    "note": "Some note",
-                },
-                {
-                    "feature_type": "CDS",
-                    "location": "789..1011",
-                    "protein_id": "DEF456",
-                    "translation": "ATGCTAGCATCG",
-                },
-                {
-                    "feature_type": "gene",
-                    "location": "789..1011",
-                    "locus_tag": "DEF789",
-                    "note": "Another note",
-                },
-            ],
-        ),
-        # Add more test cases as needed
-    ],
-)
-def test_parse_feature_lines(input_lines, expected_output):
-    assert list(parse_feature_lines(input_lines)) == expected_output
-
-
-def test_parse_dna_seq_lines():
-    lines = ["        1 aaacc gggtt", "       11 ccaaa tttgg", "       21 ggccc ctttt"]
-
-    assert parse_dna_seq_lines(lines) == "AAACCGGGTTCCAAATTTGGGGCCCCTTTT"
 
 
 def test_combine_contigs_metadata():
@@ -535,22 +407,6 @@ def test_shift_end_coordinates(coordinates, shift, expected):
     assert result == expected
 
 
-def test_check_sequence_tuple_valid():
-    name, sequence = check_sequence_tuple("seq1", "ATGC")
-    assert name == "seq1"
-    assert sequence == "ATGC"
-
-
-def test_check_sequence_tuple_empty_name():
-    with pytest.raises(ValueError):
-        check_sequence_tuple("", "ATGC")
-
-
-def test_check_sequence_tuple_empty_sequence():
-    with pytest.raises(ValueError):
-        check_sequence_tuple("seq1", "")
-
-
 def test_parse_fasta_valid():
     fasta_data = ">seq1\nATGC\n>seq2\nGCTA"
 
@@ -561,11 +417,32 @@ def test_parse_fasta_valid():
 
 def test_parse_fasta_empty_sequence():
     fasta_data = ">seq1\n>seq2\nGCTA"
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="Malformed FASTA record for contig 'seq1'|empty sequence"
+    ):
         list(parse_fasta(fasta_data.split("\n")))
 
 
 def test_parse_fasta_no_header():
     fasta_data = "seq1\nATGC\nseq2\nGCTA".split("\n")
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="Malformed FASTA content|header line starting with '>'"
+    ):
         list(parse_fasta(fasta_data))
+
+
+def test_parse_fasta_empty_header_name():
+    fasta_data = ">\nATGC\n".split("\n")
+    with pytest.raises(
+        ValueError, match="Malformed FASTA header|contains no contig name"
+    ):
+        list(parse_fasta(fasta_data))
+
+
+def test_parse_fasta_includes_source_path_in_error(tmp_path: Path):
+    fasta_path = tmp_path / "bad_contigs.fa"
+    fasta_path.write_text(">seq1\n>seq2\nGCTA\n", encoding="utf-8")
+
+    with open(fasta_path, "r", encoding="utf-8") as handle:
+        with pytest.raises(ValueError, match=str(fasta_path)):
+            list(parse_fasta(handle))

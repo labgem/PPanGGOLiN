@@ -803,6 +803,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "rgp_cluster", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Cluster RGPs based on their gene families."
+    parser.category = "Regions of Genomic Plasticity"
     parser_cluster_rgp(parser)
     return parser
 
@@ -818,7 +820,11 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
         description="One of the following arguments is required :",
     )
     required.add_argument(
-        "-p", "--pangenome", required=True, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=True,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
 
     optional = parser.add_argument_group(title="Optional arguments")
@@ -868,7 +874,7 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
         "--basename",
         required=False,
         default="rgp_cluster",
-        help="basename for the output file",
+        help="Basename for the output file.",
     )
 
     optional.add_argument(
@@ -877,7 +883,7 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
         required=False,
         type=Path,
         default="rgp_clustering",
-        help="Output directory",
+        help="Output directory.",
     )
 
     optional.add_argument(

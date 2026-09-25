@@ -7,8 +7,7 @@ To generate output for specific genomes, use the `--genomes` argument. This argu
 
 ### Genes table with pangenome annotations
 
-The `--table` option generates a TSV file for each genome, which contains pangenome annotations for the genes.  These files are stored in a directory named `tables`.
-
+The `--table` option generates a TSV file for each genome, which contains pangenome annotations for the genes. These files are stored in a directory named `tables`.
 
 The following table outlines the columns present in the generated files:
 
@@ -34,7 +33,7 @@ The following table outlines the columns present in the generated files:
 Columns such as RGP, spot, and module are included only when these elements have been predicted in the pangenome.
 ```
 
-Those files can be generated as such : 
+Those files can be generated as such:
 
 ```bash
 ppanggolin write_genomes -p pangenome.h5 --table -o write_genomes_output
@@ -56,7 +55,7 @@ This command will create a gff directory within the output directory, with one G
 
 Pangenome annotations within the GFF are recorded in the attribute column of the file.
 
-For CDS features, pangenome annotations are recorded in the attribute column of the file:
+For CDS features, pangenome annotations are recorded in the attribute column of the file.
 
 CDS features have the following attributes:
 
@@ -92,7 +91,7 @@ NC_010401.1	external	gene	2054	2572	.	-	.	ID=gene-ABAYE_RS00015
 NC_010401.1	external	CDS	2054	2572	.	-	0	ID=ABAYE_RS00015;Parent=gene-ABAYE_RS00015;product=tetratricopeptide repeat protein;family=HTZ92_RS18670;partition=shell;rgp=NC_010401.1_RGP_0
 ```
 
-### JSON Map for Proksee visualisation
+### JSON Map for Proksee visualization
 
 
 The `--proksee` argument generates JSON map files containing pangenome annotations, which can be visualized using Proksee at [https://proksee.ca/](https://proksee.ca/).
@@ -128,8 +127,6 @@ The visualization is composed of three tracks:
 
 
 
-
-
 ### Adding Fasta Sequences into GFF and proksee JSON map Files
 
 PPanGGOLiN allows the incorporation of fasta sequences into GFF files and proksee JSON map files. This integration with Proksee provides access to various tools that rely on DNA sequences, including the construction of GC% and GC skew profiles, and conducting blast searches for example.
@@ -137,14 +134,14 @@ PPanGGOLiN allows the incorporation of fasta sequences into GFF files and prokse
 
 Since PPanGGOLiN does not retain genomic sequences, it is necessary to provide the original genomic files used to construct the pangenome through either the `--anno` or `--fasta` argument. These arguments mirror those used in workflow commands (`workflow`, `all`, `panrgp`, `panmodule`) and the `annotate` command.
 
-- `--anno`: This option requires a tab-separated file containing genome names and the corresponding GFF/GBFF file paths of their annotations. If `--anno` is utilized, GFF files should include fasta sequences.
+- `--anno`: This option requires a tab-separated file containing genome names and the corresponding GFF/GBFF file paths of their annotations. If `--anno` is used, GFF files should include fasta sequences.
 
 - `--fasta`: Use this option with a tab-separated file that lists genome names alongside the filepaths of their genomic sequences in fasta format.
 
 
 ### Incorporating Metadata into Tables, GFF, and Proksee Files
 
-You can inject metadata associated to genes and families, previously added with the `metadata` command, into genome outputs using the `--add_metadata` parameter. When users add metadata, they specify the source of this metadata. These metadata sources can be selectively included using the `--metadata_sources` parameter. By default, all sources are added when the `--add_metadata` flag is specified.
+You can inject metadata associated with genes and families, previously added with the `metadata` command, into genome outputs using the `--add_metadata` parameter. When users add metadata, they specify the source of this metadata. These metadata sources can be selectively included using the `--metadata_sources` parameter. By default, all sources are added when the `--add_metadata` flag is specified.
 
 #### Metadata in GFF Files
 

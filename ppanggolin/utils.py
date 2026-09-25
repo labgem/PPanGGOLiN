@@ -107,6 +107,12 @@ WRITE_GENOME_FLAG_DEFAULT_IN_WF = ["table", "proksee", "gff"]
 DRAW_FLAG_DEFAULT_IN_WF = ["tile_plot", "ucurve", "draw_spots"]
 
 
+class RawTextHelpFormatterWithDefaults(
+    argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatter
+):
+    """Preserve multiline formatting while appending default values to help text."""
+
+
 def check_log(log_file: str) -> TextIO:
     """
     Check if the output log is writable
@@ -154,44 +160,7 @@ def check_tsv_sanity(tsv_file: Path):
     :param tsv: Path to the TSV containing organism information.
     :raises ValueError: If the file format is incorrect or contains invalid genome names.
     """
-    with read_compressed_or_not(tsv_file) as input_file:
-        name_set = set()
-        duplicated_names = set()
-        non_existing_files = set()
-
-        for line in input_file:
-            elements = [el.strip() for el in line.split("\t")]
-
-            if len(elements) <= 1:
-                raise ValueError(f"No tabulation separator found in file: {tsv_file}")
-
-            genome_name, genome_path = elements[0], elements[1]
-
-            if " " in genome_name:
-                raise ValueError(
-                    f"Genome names cannot contain spaces (first encountered: '{genome_name}'). "
-                    "Please remove spaces to ensure compatibility with PPanGGOLiN dependencies."
-                )
-
-            if genome_name in name_set:
-                duplicated_names.add(genome_name)
-            name_set.add(genome_name)
-
-            org_path = Path(genome_path)
-            if (
-                not org_path.exists()
-                and not tsv_file.parent.joinpath(org_path).exists()
-            ):
-                non_existing_files.add(genome_path)
-
-        if non_existing_files:
-            raise ValueError(
-                f"Some specified genome files do not exist: {', '.join(non_existing_files)}"
-            )
-        if duplicated_names:
-            raise ValueError(
-                f"Some genome names are duplicated: {', '.join(duplicated_names)}"
-            )
+    parse_input_paths_file(tsv_file)
 
 
 def check_input_files(file: Path, check_tsv: bool = False):
@@ -587,7 +556,7 @@ def check_option_workflow(args):
         )
 
 
-def parse_config_file(yaml_config_file: str) -> dict:
+def parse_config_file(yaml_config_file: Path) -> dict:
     """
     Parse yaml config file.
 
@@ -596,7 +565,7 @@ def parse_config_file(yaml_config_file: str) -> dict:
     :return: dict of config with key the command and as value another dict with param as key and value as value.
     """
 
-    with yaml_config_file as yaml_fh:
+    with open(yaml_config_file) as yaml_fh:
         config = yaml.safe_load(yaml_fh)
 
     if config is None:
@@ -623,44 +592,82 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
     :param subparser: A subparser object from any subcommand.
     """
 
+    existing_options = {
+        option for action in subparser._actions for option in action.option_strings
+    }
+
     common = subparser._action_groups.pop(
         1
     )  # get the 'optional arguments' action group.
     common.title = "Common arguments"
-    common.add_argument(
-        "--verbose",
-        required=False,
-        type=int,
-        default=1,
-        choices=[0, 1, 2],
-        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)",
-    )
-    common.add_argument(
-        "--log",
-        required=False,
-        type=check_log,
-        default="stdout",
-        help="log output file",
-    )
-    common.add_argument(
-        "-d",
-        "--disable_prog_bar",
-        required=False,
-        action="store_true",
-        help="disables the progress bars",
-    )
-    common.add_argument(
-        "-f",
-        "--force",
-        action="store_true",
-        help="Force writing in output directory and in pangenome output file.",
-    )
-    common.add_argument(
-        "--config",
-        required=False,
-        type=argparse.FileType(),
-        help="Specify command arguments through a YAML configuration file.",
-    )
+
+    if "--verbose" not in existing_options:
+        common.add_argument(
+            "--verbose",
+            required=False,
+            type=int,
+            default=1,
+            choices=[0, 1, 2],
+            help="Verbose level: 0 = warnings and errors only, 1 = info, 2 = debug.",
+        )
+    else:
+        logging.getLogger("PPanGGOLiN").warning(
+            "The --verbose argument is already defined in the subcommand. "
+            "Please remove it from the subcommand to avoid conflicts."
+        )
+
+    if "--log" not in existing_options:
+        common.add_argument(
+            "--log",
+            required=False,
+            type=check_log,
+            default="stdout",
+            help="Log output file.",
+        )
+    else:
+        logging.getLogger("PPanGGOLiN").warning(
+            "The --log argument is already defined in the subcommand. "
+            "Please remove it from the subcommand to avoid conflicts."
+        )
+
+    if "-d" not in existing_options and "--disable_prog_bar" not in existing_options:
+        common.add_argument(
+            "-d",
+            "--disable_prog_bar",
+            required=False,
+            action="store_true",
+            help="Disable the progress bars.",
+        )
+    else:
+        logging.getLogger("PPanGGOLiN").warning(
+            "The --disable_prog_bar argument is already defined in the subcommand. "
+            "Please remove it from the subcommand to avoid conflicts."
+        )
+
+    if "-f" not in existing_options and "--force" not in existing_options:
+        common.add_argument(
+            "-f",
+            "--force",
+            action="store_true",
+            help="Force overwrite in the output directory and pangenome output file.",
+        )
+    else:
+        logging.getLogger("PPanGGOLiN").warning(
+            "The --force argument is already defined in the subcommand. "
+            "Please remove it from the subcommand to avoid conflicts."
+        )
+    if "--config" not in existing_options:
+        common.add_argument(
+            "--config",
+            required=False,
+            type=Path,
+            help="Specify command arguments through a YAML configuration file.",
+        )
+    else:
+        logging.getLogger("PPanGGOLiN").warning(
+            "The --config argument is already defined in the subcommand. "
+            "Please remove it from the subcommand to avoid conflicts."
+        )
     subparser._action_groups.append(common)
 
 
@@ -808,7 +815,7 @@ def get_args_differing_from_default(
 
 
 def manage_cli_and_config_args(
-    subcommand: str, config_file: str, subcommand_to_subparser: dict
+    subcommand: str, config_file: Optional[Path], subcommand_to_subparser: dict
 ) -> argparse.Namespace:
     """
     Manage command line and config arguments for the given subcommand.
@@ -1326,41 +1333,90 @@ def parse_input_paths_file(
     This function reads an input paths file, which is in TSV format, and extracts genome information
     including file paths and putative circular contigs.
 
+    Each non-commented line must have at least two tab-separated columns:
+    genome_name<TAB>genome_file_path<TAB>[optional circular contig identifiers].
+
     :param path_list_file: The path to the input paths file.
-    :return: A dictionary where keys are genome names and values are dictionaries containing path information and
-             putative circular contigs.
-    :raises FileNotFoundError: If a specified genome file path does not exist.
-    :raises Exception: If there are no genomes in the provided file.
+    :return: A dictionary mapping each genome name to its path and circular contigs.
+    :raises ValueError: If the TSV is malformed, has missing fields, duplicate names,
+                        blank names or whitespace in names.
+    :raises FileNotFoundError: If a genome file path does not exist.
+    :raises ValueError: If the file contains no valid genomes.
     """
     logging.getLogger("PPanGGOLiN").info(
         f"Reading {path_list_file} to process genome files"
     )
     genome_name_to_genome_path = {}
 
-    for line in read_compressed_or_not(path_list_file):
-        elements = [el.strip() for el in line.split("\t")]
-        genome_file_path = Path(elements[1])
-        genome_name = elements[0]
-        putative_circular_contigs = elements[2:]
+    with read_compressed_or_not(path_list_file) as input_file:
+        for line_number, line in enumerate(input_file, start=1):
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith("#"):
+                continue
 
-        if not genome_file_path.exists():
-            # Check if the file path doesn't exist and try an alternative path.
-            genome_file_path_alt = path_list_file.parent.joinpath(genome_file_path)
-
-            if not genome_file_path_alt.exists():
-                raise FileNotFoundError(
-                    f"The file path '{genome_file_path}' for genome '{genome_name}' specified in '{path_list_file}' does not exist."
+            elements = [el.strip() for el in line.rstrip("\n").split("\t")]
+            if len(elements) < 2:
+                raise ValueError(
+                    f"Malformed genome list line {line_number} in '{path_list_file}': "
+                    "expected at least 2 tab-separated columns (genome name and genome file path), "
+                    f"but found {len(elements)} column(s): '{line.rstrip()}'."
                 )
-            else:
+
+            genome_name = elements[0]
+            genome_path = elements[1]
+
+            if not genome_name:
+                raise ValueError(
+                    f"Malformed genome list line {line_number} in '{path_list_file}': "
+                    "the genome name is empty."
+                )
+
+            if any(ch.isspace() for ch in genome_name):
+                raise ValueError(
+                    f"Genome name '{genome_name}' on line {line_number} in '{path_list_file}' "
+                    "must not contain whitespace. Please use names without spaces."
+                )
+
+            trimmed_genome_name = genome_name.strip()
+            if trimmed_genome_name != genome_name:
+                genome_name = trimmed_genome_name
+
+            if genome_name in genome_name_to_genome_path:
+                raise ValueError(
+                    f"Duplicate genome name '{genome_name}' found in '{path_list_file}' on line {line_number} "
+                    "after trimming whitespace. Genome names must be unique."
+                )
+
+            if not genome_path:
+                raise ValueError(
+                    f"Malformed genome list line {line_number} in '{path_list_file}': "
+                    f"the genome file path for genome '{genome_name}' is empty."
+                )
+
+            genome_file_path = Path(genome_path)
+            if not genome_file_path.exists():
+                genome_file_path_alt = path_list_file.parent.joinpath(genome_file_path)
+                if not genome_file_path_alt.exists():
+                    raise FileNotFoundError(
+                        f"The file path '{genome_path}' for genome '{genome_name}' specified in '{path_list_file}' does not exist."
+                    )
                 genome_file_path = genome_file_path_alt
 
-        genome_name_to_genome_path[genome_name] = {
-            "path": genome_file_path,
-            "circular_contigs": putative_circular_contigs,
-        }
+            if genome_file_path.is_dir():
+                raise ValueError(
+                    f"The genome file path '{genome_path}' for genome '{genome_name}' specified in '{path_list_file}' "
+                    "resolves to a directory, not a file."
+                )
+
+            genome_name_to_genome_path[genome_name] = {
+                "path": genome_file_path,
+                "circular_contigs": elements[2:],
+            }
 
     if len(genome_name_to_genome_path) == 0:
-        raise Exception(f"There are no genomes in the provided file: {path_list_file} ")
+        raise ValueError(
+            f"There are no valid genomes in the provided file: {path_list_file}"
+        )
 
     return genome_name_to_genome_path
 
@@ -1625,6 +1681,40 @@ def check_tools_availability(
     return availability
 
 
+def check_module(module_name: str) -> bool:
+    try:
+        __import__(module_name)
+    except ImportError:
+        return False
+    return True
+
+
+def check_module_availability(
+    module_to_description: Union[Dict[str, str], List[str]],
+) -> dict[str, bool]:
+    """
+    Check if a python module is available.
+
+    :param module_to_description: A dictionary where keys are module names and values are the description of their purpose, or a list of python module name
+    """
+    if isinstance(module_to_description, list):
+        module_to_description = {module: "" for module in module_to_description}
+    availability = {module: check_module(module) for module in module_to_description}
+
+    for module, module_decription in module_to_description.items():
+        if not availability[module]:
+            caller_frame = inspect.stack()[1]
+            caller_module = caller_frame.frame.f_globals["__name__"]
+            caller_function = caller_frame.function
+
+            logging.getLogger("PPanGGOLiN").warning(
+                f"Missing required python module: '{module}' {module_decription}. "
+                f"This check was triggered in '{caller_function}' inside module '{caller_module}'. "
+                "Please install the missing module to enable the (optional) feature requiring it."
+            )
+    return availability
+
+
 def check_translation_table_to_use(
     pangenome: "Pangenome",
     is_user_specified: bool,
@@ -1644,8 +1734,9 @@ def check_translation_table_to_use(
     :param user_translation_table: The translation table value provided by the user
                                    (default or explicitly specified)
 
-    :return: The translation table to use for translation
+    :return: The translation table to use for translation, normalized to an int
     """
+
     logger = logging.getLogger("PPanGGOLiN")
 
     pangenome_translation_table = pangenome.status.get("translation_table", None)
@@ -1716,18 +1807,19 @@ def check_translation_table_to_use(
             logger.debug(
                 f"Using user-specified translation table: {user_translation_table}"
             )
-        return user_translation_table
+        return int(user_translation_table)
 
     # Case 2: No user specification, use genetic code from previous steps if available
     if pangenome_translation_table is not None:
         logger.debug(
             f"Using translation table from previous pangenome analysis: {pangenome_translation_table}"
         )
-        return pangenome_translation_table
+
+        return int(pangenome_translation_table)
 
     # Case 3: No user specification and no previous data, use default
     logger.info(
         f"No translation table information found in previous pangenome analysis. "
         f"Using the default translation table: {user_translation_table}."
     )
-    return user_translation_table
+    return int(user_translation_table)

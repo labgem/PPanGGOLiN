@@ -204,6 +204,8 @@ def map_input_gene_to_family_all_aln(
     with open(aln_res) as alnFile, open(aln_file_clean, "w") as aln_outfl:
         for line in alnFile:
             line_splitted = line.split()
+            if not line_splitted:
+                continue
 
             line_splitted[1] = line_splitted[1].replace(
                 "ppanggolin_", ""
@@ -246,6 +248,8 @@ def map_input_gene_to_family_rep_aln(
     with open(aln_res) as alnFile, open(aln_file_clean, "w") as aln_outfl:
         for line in alnFile:
             line_splitted = line.split()
+            if not line_splitted:
+                continue
 
             line_splitted[1] = line_splitted[1].replace(
                 "ppanggolin_", ""
@@ -855,6 +859,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "align", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Aligns a genome or a set of proteins to the pangenome gene families and predicts information from it."
+    parser.category = "Analysis using reference pangenomes"
     parser_align(parser)
     return parser
 
@@ -874,18 +880,22 @@ def parser_align(parser: argparse.ArgumentParser):
         "--sequences",
         required=False,
         type=Path,
-        help="sequences (nucleotides or amino acids) to align on the pangenome gene families",
+        help="Sequences (nucleotides or amino acids) to align against the pangenome gene families.",
     )
 
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
     required.add_argument(
         "-o",
         "--output",
         required=True,
         type=Path,
-        help="Output directory where the file(s) will be written",
+        help="Output directory where the file(s) will be written.",
     )
 
     optional = parser.add_argument_group(title="Optional arguments")
@@ -893,22 +903,22 @@ def parser_align(parser: argparse.ArgumentParser):
         "--no_defrag",
         required=False,
         action="store_true",
-        help="DO NOT Realign gene families to link fragments with"
-        "their non-fragmented gene family. (default: False)",
+        help="Do not realign gene families to link fragments with their non-fragmented gene family."
+        " (Default: False)",
     )
     optional.add_argument(
         "--identity",
         required=False,
         type=float,
         default=0.5,
-        help="min identity percentage threshold",
+        help="Minimum identity percentage threshold.",
     )
     optional.add_argument(
         "--coverage",
         required=False,
         type=float,
         default=0.8,
-        help="min coverage percentage threshold",
+        help="Minimum coverage percentage threshold.",
     )
     optional.add_argument(
         "--fast",
@@ -930,15 +940,14 @@ def parser_align(parser: argparse.ArgumentParser):
         "--getinfo",
         required=False,
         action="store_true",
-        help="Use this option to extract info related to the best hit of each query, "
-        "such as the RGP it is in, or the spots.",
+        help="Use this option to extract information related to the best hit of each query, "
+        "such as the RGP it is in or the spots it belongs to.",
     )
     optional.add_argument(
         "--draw_related",
         required=False,
         action="store_true",
-        help="Draw figures and provide graphs in a gexf format of the eventual spots"
-        " associated to the input sequences",
+        help="Draw figures and provide graphs in GEXF format for the spots associated with the input sequences.",
     )
     # but does not use the option
     optional.add_argument(
@@ -946,7 +955,7 @@ def parser_align(parser: argparse.ArgumentParser):
         required=False,
         action="store_true",
         help="In the context of provided annotation, use this option to read pseudogenes. "
-        "(Default behavior is to ignore them)",
+        "(Default behavior is to ignore them).",
     )
     optional.add_argument(
         "-c",
@@ -954,21 +963,21 @@ def parser_align(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
     optional.add_argument(
         "--tmpdir",
         required=False,
         type=Path,
         default=Path(tempfile.gettempdir()),
-        help="directory for storing temporary files",
+        help="Directory for storing temporary files.",
     )
     optional.add_argument(
         "--keep_tmp",
         required=False,
         default=False,
         action="store_true",
-        help="Keeping temporary files (useful for debugging).",
+        help="Keep temporary files (useful for debugging).",
     )
 
 

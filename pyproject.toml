@@ -32,20 +32,22 @@ classifiers=[
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Bio-Informatics"]
-requires-python = ">=3.9"
+requires-python = ">=3.10,<3.14"
 
 dependencies = [
-    "numpy>1.24.0,<2.0.0",
+    "numpy>1.24.0,<3.0.0",
     "pandas>=2.0.0,<3.0.0",
     "tqdm>=4.0.0,<5.0.0",
     "tables>=3.8.0,<4.0.0",
     "pyrodigal>=3.0.0,<4.0.0",
+    "pyaragorn>=0.3.0,<0.4.0",
     "networkx>=3.0.0,<4.0.0",
     "scipy>=1.0.0,<2.0.0",
     "plotly>=5.0.0,<6.0.0",
     "gmpy2>=2.0.0,<3.0.0",
-    "bokeh>=3.0.0,<4.0.0",
+    "bokeh>=3.0.0,<3.4.0",
     "pynem[fast]>=0.6"
+    "gb-io>=0.4.0",
 ]
 
 license = {file="LICENSE.txt"}
@@ -61,9 +63,9 @@ doc = [
     "sphinxcontrib.mermaid==0.9.2",
 ]
 test = [
-    "pytest==7",
+    "pytest>=8.3.0,<9",
     "black==24.*",
-    "pytest-cov==6"
+    "pytest-cov>=6.0.0,<7"
 ]
 
 #

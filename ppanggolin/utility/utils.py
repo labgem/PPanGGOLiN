@@ -283,6 +283,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "utils", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Helper side commands."
+    parser.category = "Utility command"
     parser_default_config(parser)
     return parser
 
@@ -320,38 +322,20 @@ def parser_default_config(parser: argparse.ArgumentParser):
         help="name and path of the config file with default parameters written in yaml.",
     )
 
-    optional.add_argument(
-        "--verbose",
-        required=False,
-        type=int,
-        default=1,
-        choices=[0, 1, 2],
-        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)",
-    )
-
-    optional.add_argument(
-        "--log",
-        required=False,
-        type=check_log,
-        default="stdout",
-        help="log output file",
-    )
-
-    optional.add_argument(
-        "-f",
-        "--force",
-        action="store_true",
-        help="Overwrite the given output file if it exists.",
-    )
+    # Common CLI options are added centrally in add_common_arguments() to keep
+    # a single source of truth and avoid argparse conflicts.
 
 
 if __name__ == "__main__":
     """To test local change and allow using debugger"""
+    from ppanggolin.utils import add_common_arguments
+
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter,
     )
 
     parser_default_config(main_parser)
+    add_common_arguments(main_parser)
 
     launch(main_parser.parse_args())

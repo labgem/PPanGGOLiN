@@ -5,20 +5,19 @@ import argparse
 import logging
 from concurrent.futures import ProcessPoolExecutor
 from itertools import chain
-
 from multiprocessing import get_context
 import os
 from pathlib import Path
 import tempfile
 import time
 from typing import List, Set, Tuple, Iterable, Dict, Generator, Union
-import re
 from collections import defaultdict, Counter
 import warnings
 
 # installed libraries
 from tqdm import tqdm
 from tables.path import check_name_validity, NaturalNameWarning
+import gb_io
 
 # local libraries
 from ppanggolin.annotate.synta import (
@@ -37,6 +36,7 @@ from ppanggolin.utils import (
     check_input_files,
     has_non_ascii,
     replace_non_ascii,
+    parse_input_paths_file,
 )
 from ppanggolin.formats import write_pangenome
 from ppanggolin.metadata import Metadata
@@ -156,286 +156,65 @@ def create_gene(
     return new_gene
 
 
-def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool, bool]:
+def extract_positions(
+    location: gb_io.Complement | gb_io.Join | gb_io.Range | gb_io.Order,
+) -> tuple[list[tuple[int, int]], bool, bool, bool]:
     """
-    Extracts start and stop positions from a string and determines whether it is complement and pseudogene.
-
-    Example of strings that the function is able to process:
-
-    "join(190..7695,7695..12071)",
-    "complement(join(4359800..4360707,4360707..4360962))",
-    "join(6835405..6835731,1..1218)",
-    "join(1375484..1375555,1375557..1376579)",
-    "complement(6815492..6816265)",
-    "6811501..6812109",
-    "complement(6792573..>6795461)",
-    "join(1038313,1..1016)"
+    Extracts start and stop positions from a location Class from gb.io (Complement, Join, Range) and returns a tuple containing the coordinates, whether it is a complement, and whether it has partial start or end.
 
 
-    :param string: The input string containing position information.
+    :param location: The input location object containing position information.
 
     :return: A tuple containing a list of tuples representing start and stop positions,
              a boolean indicating whether it is complement,
              a boolean indicating whether it is a partial gene at start position and
              a boolean indicating whether it is a partial gene at end position.
 
-    :raises ValueError: If the string is not formatted as expected or if positions cannot be parsed as integers.
+    :raises ValueError: If the location is not formatted as expected or if positions cannot be parsed as integers.
     """
-    complement = False
-    coordinates = []
+    is_complement = False
     has_partial_start = False
     has_partial_end = False
+    coordinates = []
 
-    # Check if 'complement' exists in the string
-    if "complement" in string:
-        complement = True
+    if isinstance(location, gb_io.Complement):
+        is_complement = True
+        location = location.location
 
-    if "(" in string:
-        # Extract positions found inside the parenthesis
-        inner_parentheses_regex = r"\(([^()]+)\)"
-        inner_matches = re.findall(inner_parentheses_regex, string)
-
-        try:
-            positions = inner_matches[-1]
-        except IndexError:
-            raise ValueError(f"Gene position {string} is not formatted as expected.")
+    if isinstance(location, (gb_io.Join, gb_io.Order)):  # process them the same for now
+        parts = location.locations
+    elif isinstance(location, gb_io.Range):
+        parts = [location]
     else:
-        positions = string.rstrip()
-
-    # Check if '>' or '<' exists in the positions to identify partial genes
-
-    if ">" in positions or "<" in positions:
-        if "<" in positions.split(",")[0]:
-            has_partial_start = True
-
-        if ">" in positions.split(",")[-1]:
-            has_partial_end = True
-
-        inner_positions = ",".join(positions.split(",")[1:-1])
-
-        if (
-            ">" in inner_positions
-            or "<" in inner_positions
-            or (not has_partial_end and not has_partial_start)
-        ):
+        try:
+            position = int(location)
+        except (TypeError, ValueError):
             raise ValueError(
-                f"Error parsing positions '{positions}' extracted from GBFF string '{string}'. "
-                f"Chevrons are found in the inner position. This case is unexpected and not handle."
+                f"Gene position {location} is not formatted as expected. It currently is of type {type(location)}."
             )
 
-    for position in positions.split(","):
+        coordinates.append((position, position))
+        parts = []
+
+    for part in parts:
+        if not isinstance(part, gb_io.Range):
+            continue
+
+        has_partial_start |= getattr(part, "before", False)
+        has_partial_end |= getattr(part, "after", False)
 
         try:
-            start, stop = position.replace(">", "").replace("<", "").split("..")
-        except ValueError:
-            # in some case there is only one position meaning that the gene is long of only one nt in this piece.
-            # for instance : join(1038313,1..1016)
-            start = position.replace(">", "").replace("<", "")
-            stop = start
-        try:
-            start, stop = int(start), int(stop)
-        except ValueError:
+            coordinates.append((int(part.start) + 1, int(part.end)))
+        except (TypeError, ValueError):
             raise ValueError(
-                f"Error parsing position '{position}' extracted from GBFF string '{string}'. "
-                f"Start position ({start}) and/or stop position ({stop}) are not valid integers."
+                f"Gene range {part} is not formatted as expected. It should contain integer start and end positions and before/after bools."
             )
 
-        coordinates.append((start, stop))
-
-    return coordinates, complement, has_partial_start, has_partial_end
-
-
-def parse_gbff_by_contig(
-    gbff_file_path: Path,
-) -> Generator[
-    Tuple[Dict[str, str], Generator[Dict[str, Union[str, Set[str]]], None, None], str],
-    None,
-    None,
-]:
-    """
-    Parse a GBFF file by contig and yield tuples containing header, feature, and sequence info for each contig.
-
-    :param gbff_file_path: Path to the GBFF file.
-    :return: A generator that yields tuples containing header lines, feature lines, and sequence info for each contig.
-    """
-    header_lines = []
-    feature_lines = []
-    sequence_lines = []
-
-    current_section = None
-
-    with read_compressed_or_not(gbff_file_path) as fl:
-        for i, line in enumerate(fl):
-            # Skip blank lines
-            if not line.strip():
-                continue
-
-            if line.startswith("LOCUS") or line.startswith("CONTIG"):
-                # CONTIG line are found between FEATURES and ORIGIN and are put in header section here for simplicity
-                current_section = "header"
-
-            elif line.startswith("FEATURES"):
-                current_section = "feature"
-                continue
-
-            elif line.startswith("ORIGIN"):
-                current_section = "sequence"
-                continue
-
-            if line.strip() == "//":
-                # Check that each section has some lines
-                assert header_lines and feature_lines and sequence_lines, (
-                    "Missing section in GBFF file. "
-                    f"Contig ending at line {i + 1} has an empty section. It has "
-                    f"{len(header_lines)} header lines, "
-                    f"{len(header_lines)} feature lines, "
-                    f"and {len(sequence_lines)} sequence lines."
-                )
-                yield (
-                    parse_contig_header_lines(header_lines),
-                    parse_feature_lines(feature_lines),
-                    parse_dna_seq_lines(sequence_lines),
-                )
-
-                header_lines = []
-                feature_lines = []
-                sequence_lines = []
-                current_section = None
-                continue
-
-            if current_section == "header":
-                header_lines.append(line)
-
-            elif current_section == "feature":
-                feature_lines.append(line)
-
-            elif current_section == "sequence":
-                sequence_lines.append(line)
-
-            else:
-                raise ValueError(
-                    f"Unexpected structure in GBFF file: {gbff_file_path}. {line}"
-                )
-
-    # In case the last // is missing, return the last contig
-    if header_lines or feature_lines or sequence_lines:
-        yield (
-            parse_contig_header_lines(header_lines),
-            parse_feature_lines(feature_lines),
-            parse_dna_seq_lines(sequence_lines),
-        )
-
-
-def parse_contig_header_lines(header_lines: List[str]) -> Dict[str, str]:
-    """
-    Parse required information from header lines of a contig from a GBFF file.
-
-    :param header_lines: List of strings representing header lines of a contig from a GBFF file.
-    :return: A dict with keys representing different fields and values representing their corresponding values joined by new line.
-    """
-    field = ""  # Initialize field
-    field_to_value = defaultdict(
-        list
-    )  # Initialize defaultdict to store field-value pairs
-
-    for line in header_lines:
-        field_of_line = line[:12].strip()  # Extract field from the first 12 characters
-
-        if len(field_of_line) > 1 and field_of_line.isupper():
-            field = field_of_line  # Update current field
-
-        # Append value to the current field in the defaultdict
-        field_to_value[field].append(line[12:].strip())
-
-    return {field: "\n".join(value) for field, value in field_to_value.items()}
-
-
-def parse_feature_lines(
-    feature_lines: List[str],
-) -> Generator[Dict[str, Union[str, Set[str]]], None, None]:
-    """
-    Parse feature lines from a GBFF file and yield dictionaries representing each feature.
-
-    :param feature_lines: List of strings representing feature lines from a GBFF file.
-    :return: A generator that yields dictionaries, each representing a feature with its type, location, and qualifiers.
-    """
-
-    def stringify_feature_values(
-        feature: Dict[str, List[str]]
-    ) -> Dict[str, Union[str, Set[str]]]:
-        """
-        All value of the returned dict are str except for db_xref that is a list.
-        When multiple values exist for the same tag only the first one is kept.
-        """
-        stringify_feature = {}
-        for tag, val in feature.items():
-            if tag == "db_xref":
-                stringify_feature[tag] = set(val)
-            elif isinstance(val, list):
-                stringify_feature[tag] = val[0]
-            else:
-                stringify_feature[tag] = val
-        return defaultdict(str, stringify_feature)
-
-    current_feature = {}
-    current_qualifier = None
-
-    for line in feature_lines:
-        # Check if the line starts a new feature
-        if len(line[:21].strip()) > 0:
-            if current_feature:
-                # yield last feature
-                yield stringify_feature_values(current_feature)
-
-            current_feature = {
-                "feature_type": line[:21].strip(),
-                "location": [line[21:].strip()],
-            }
-            current_qualifier = "location"
-
-        elif line.strip().startswith("/"):
-            qualifier_line = line.strip()[1:]  # [1:] used to remove /
-
-            if "=" in qualifier_line:
-                current_qualifier, value = qualifier_line.split("=", 1)
-            else:
-                current_qualifier, value = qualifier_line, qualifier_line
-            # clean value from quote
-            value = value[1:] if value.startswith('"') else value
-            value = value[:-1] if value.endswith('"') else value
-
-            if current_qualifier in current_feature:
-                current_feature[current_qualifier].append(value)
-
-            else:
-                current_feature[current_qualifier] = [value]
-
-        else:
-            # the line does not start a qualifier so it's the continuation of the last qualifier value.
-            value = line.strip()
-            value = value[:-1] if value.endswith('"') else value
-            current_feature[current_qualifier][-1] += f" {value}"
-
-    # Append the last feature
-    if current_feature:
-        yield stringify_feature_values(current_feature)
-
-
-def parse_dna_seq_lines(sequence_lines: List[str]) -> str:
-    """
-    Parse sequence_lines from a GBFF file and return dna sequence
-
-    :param sequence_lines: List of strings representing sequence lines from a GBFF file.
-    :return: a string in upper case of the DNA sequences that have been cleaned
-    """
-    sequence = ""
-    for line in sequence_lines:
-        sequence += line[10:].replace(" ", "").strip().upper()
-    return sequence
+    return coordinates, is_complement, has_partial_start, has_partial_end
 
 
 def combine_contigs_metadata(
-    contig_to_metadata: Dict[Contig, Dict[str, str]]
+    contig_to_metadata: Dict[Contig, Dict[str, str]],
 ) -> Tuple[Dict[str, str], Dict[Contig, Dict[str, str]]]:
     """
     Combine contig metadata to identify shared and unique metadata tags and values.
@@ -473,7 +252,9 @@ def combine_contigs_metadata(
             invalid_tag_names.append(tag)
 
     all_tag_to_value = [
-        (tag, value) for tag, value in all_tag_to_value if tag not in invalid_tag_names
+        (tag, value.replace("\n", " "))
+        for tag, value in all_tag_to_value
+        if tag not in invalid_tag_names
     ]
 
     contig_count = len(contig_to_metadata)
@@ -504,7 +285,7 @@ def combine_contigs_metadata(
 
 
 def reverse_complement_coordinates(
-    coordinates: List[Tuple[int, int]]
+    coordinates: List[Tuple[int, int]],
 ) -> List[Tuple[int, int]]:
     """
     Reverses and inverts the given list of coordinates. Each coordinate pair (start, end) is transformed into
@@ -642,24 +423,23 @@ def fix_partial_gene_coordinates(
 def read_org_gbff(
     organism_name: str,
     gbff_file_path: Path,
-    circular_contigs: List[str],
+    circular_contigs: list[str],
     use_pseudogenes: bool = False,
-) -> Tuple[Organism, bool]:
+) -> tuple[Organism, bool]:
     """
-    Read a GBFF file and fills Organism, Contig and Genes objects based on information contained in this file
+    Read a GBFF file and fills Organism, Contig and Genes objects based on
+    information contained in this file
 
     :param organism_name: Organism name
     :param gbff_file_path: Path to corresponding GBFF file
     :param circular_contigs: list of contigs
     :param use_pseudogenes: Allow to read pseudogenes
 
-
     :return: Organism complete and true for sequence in file
     """
     global ctg_counter
 
     organism = Organism(organism_name)
-
     logging.getLogger("PPanGGOLiN").debug(
         f"Extracting genes information from the given gbff {gbff_file_path.name}"
     )
@@ -667,153 +447,144 @@ def read_org_gbff(
     rna_counter = 0
     contig_to_metadata = {}
 
-    for header, features, sequence in parse_gbff_by_contig(gbff_file_path):
-        if "LOCUS" not in header:
-            raise ValueError("Missing LOCUS line in GBFF header.")
+    with read_compressed_or_not(gbff_file_path) as reader:
+        for record in gb_io.iter(reader):
 
-        if "VERSION" in header and header["VERSION"] != "":
-            contig_id = header["VERSION"]
-        else:
-            # If contig_id is not specified in VERSION field like with Prokka, in that case we use the one in LOCUS
-            contig_id = header["LOCUS"].split()[0]
+            contig_id = record.version if record.version else record.name
+            contig_len = record.length
+            is_circ = record.circular
 
-        contig_len = int(header["LOCUS"].split()[1])
+            try:
+                contig = organism.get(contig_id)
+            except KeyError:
+                with contig_counter.get_lock():
+                    contig = Contig(
+                        contig_counter.value,
+                        contig_id,
+                        True if contig_id in circular_contigs or is_circ else False,
+                    )
+                    contig_counter.value += 1
+                organism.add(contig)
+                contig.length = contig_len
 
-        if contig_len != len(sequence):
-            logging.getLogger("PPanGGOLiN").warning(
-                "Unable to determine if the contig is circular or linear in file "
-                f"'{gbff_file_path}' from the LOCUS header information: {header['LOCUS']}. "
-                "By default, the contig will be considered linear."
-            )
+            for feature in record.features:
 
-        if "CIRCULAR" in header["LOCUS"].upper():
-            # this line contains linear/circular word telling if the dna sequence is circularized or not
-            is_circ = True
+                db_xref_for_metadata = {}
 
-        elif "LINEAR" in header["LOCUS"].upper():
-            is_circ = False
+                if feature.kind == "source":
+                    for qualifier in feature.qualifiers:
 
-        else:
-            is_circ = False
-            logging.getLogger("PPanGGOLiN").warning(
-                f"It's impossible to identify if contig {contig_id} is circular or linear."
-                f"in file {gbff_file_path}."
-            )
+                        if qualifier.key == "db_xref":
+                            try:
+                                database, identifier = qualifier.value.split(":")
+                                new_key = qualifier.key + "_" + database
+                                db_xref_for_metadata[new_key] = identifier
+                            except ValueError:
+                                logging.getLogger("PPanGGOLiN").warning(
+                                    f"db_xref values does not have the expected format. Expect 'db_xref=<database>:<identifier>' "
+                                    f"but got {qualifier.value} in file {gbff_file_path}. "
+                                    "db_xref tags is therefore not retrieved in "
+                                    "contig/genomes metadata."
+                                )
+                    contig_to_metadata[contig] = {
+                        qualifier.key: qualifier.value
+                        for qualifier in feature.qualifiers
+                        if isinstance(qualifier.value, str)
+                        and qualifier.key != "db_xref"
+                    }
 
-        try:
-            contig = organism.get(contig_id)
-        except KeyError:
-            with contig_counter.get_lock():
-                contig = Contig(
-                    contig_counter.value,
-                    contig_id,
-                    True if contig_id in circular_contigs or is_circ else False,
+                    contig_to_metadata[contig].update(db_xref_for_metadata)
+
+                genetic_code = ""
+
+                if feature.kind not in ["CDS", "rRNA", "tRNA"]:
+                    continue
+
+                coordinates, is_complement, has_partial_start, has_partial_end = (
+                    extract_positions(feature.location)
                 )
-                contig_counter.value += 1
-            organism.add(contig)
-            contig.length = contig_len
 
-        for feature in features:
-            if feature["feature_type"] == "source":
-                contig_to_metadata[contig] = {
-                    tag: value
-                    for tag, value in feature.items()
-                    if tag not in ["feature_type", "location"]
-                    and isinstance(value, str)
-                }
-                if "db_xref" in feature:
-                    try:
-                        db_xref_for_metadata = {
-                            f"db_xref_{database}": identifier
-                            for database_identifier in feature["db_xref"]
-                            for database, identifier in [database_identifier.split(":")]
-                        }
-                        contig_to_metadata[contig].update(db_xref_for_metadata)
-                    except ValueError:
+                feature_qualifiers = defaultdict(
+                    str,
+                    {
+                        qualifier.key: qualifier.value
+                        for qualifier in feature.qualifiers
+                    },
+                )
+
+                if "pseudo" in feature_qualifiers and not use_pseudogenes:
+                    continue
+
+                elif "transl_except" in feature_qualifiers and not use_pseudogenes:
+                    # that's probably a 'stop' codon into selenocystein.
+                    logging.getLogger("PPanGGOLiN").info(
+                        f"CDS '{feature['locus_tag']}' contains a 'transl_except' annotation ({feature['transl_except']}) "
+                        f"in contig '{contig}' in file '{gbff_file_path}'. "
+                        f"PPanGGOLiN does not handle 'transl_except' annotations. This gene's protein sequence "
+                        "will likely contain an internal stop codon when translated with PPanGGOLiN."
+                    )
+
+                for field in ["product", "gene", "db_xref"]:
+                    if field in feature_qualifiers and has_non_ascii(
+                        feature_qualifiers[field]
+                    ):
                         logging.getLogger("PPanGGOLiN").warning(
-                            f"db_xref values does not have the expected format. Expect 'db_xref=<database>:<identifier>' "
-                            f"but got {feature['db_xref']} in file {gbff_file_path}. "
-                            "db_xref tags is therefore not retrieved in contig/genomes metadata."
+                            f"In genome '{organism}', the '{field}' field of gene '{feature_qualifiers['locus_tag']}' contains non-ASCII characters: '{feature_qualifiers[field]}'. "
+                            "These characters cannot be stored in the HDF5 file and will be replaced by underscores."
                         )
-                    else:
-                        contig_to_metadata[contig].update(db_xref_for_metadata)
-            genetic_code = ""
-            if feature["feature_type"] not in ["CDS", "rRNA", "tRNA"]:
-                continue
-            coordinates, is_complement, has_partial_start, has_partial_end = (
-                extract_positions("".join(feature["location"]))
-            )
 
-            if "pseudo" in feature and not use_pseudogenes:
-                continue
+                        feature_qualifiers[field] = replace_non_ascii(
+                            feature_qualifiers[field]
+                        )
 
-            elif "transl_except" in feature and not use_pseudogenes:
-                # that's probably a 'stop' codon into selenocystein.
-                logging.getLogger("PPanGGOLiN").info(
-                    f"CDS '{feature['locus_tag']}' contains a 'transl_except' annotation ({feature['transl_except']}) "
-                    f"in contig '{contig}' in file '{gbff_file_path}'. "
-                    f"PPanGGOLiN does not handle 'transl_except' annotations. This gene's protein sequence "
-                    "will likely contain an internal stop codon when translated with PPanGGOLiN."
+                if feature.kind == "CDS":
+                    genetic_code = 0
+                    if feature_qualifiers.get("transl_table", "") != "":
+                        genetic_code = int(feature_qualifiers["transl_table"])
+
+                    if has_partial_start or has_partial_end:
+                        start_shift = (
+                            0
+                            if "codon_start" not in feature_qualifiers
+                            else int(feature_qualifiers["codon_start"]) - 1
+                        )  # -1 is to be in zero based index.
+
+                        coordinates = fix_partial_gene_coordinates(
+                            coordinates,
+                            is_complement=is_complement,
+                            start_shift=start_shift,
+                        )
+
+                strand = "-" if is_complement else "+"
+                gene = create_gene(
+                    org=organism,
+                    contig=contig,
+                    gene_counter=gene_counter,
+                    rna_counter=rna_counter,
+                    gene_id=feature_qualifiers["locus_tag"],
+                    dbxrefs=[feature_qualifiers["db_xref"]],
+                    coordinates=coordinates,
+                    strand=strand,
+                    gene_type=feature.kind,
+                    position=contig.number_of_genes,
+                    gene_name=feature_qualifiers["gene"],
+                    product=feature_qualifiers["product"].replace("\n", " "),
+                    genetic_code=genetic_code,
+                    protein_id=feature_qualifiers["protein_id"],
                 )
 
-            for field in ["product", "gene", "db_xref"]:
+                gene.add_sequence(
+                    get_dna_sequence(record.sequence.decode("ascii").upper(), gene)
+                )
 
-                if field in feature and has_non_ascii(feature[field]):
-
-                    logging.getLogger("PPanGGOLiN").warning(
-                        f"In genome '{organism}', the '{field}' field of gene '{feature['locus_tag']}' contains non-ASCII characters: '{feature[field]}'. "
-                        "These characters cannot be stored in the HDF5 file and will be replaced by underscores."
-                    )
-                    feature[field] = replace_non_ascii(feature[field])
-
-            if feature["feature_type"] == "CDS":
-                genetic_code = 0
-                if feature["transl_table"] != "":
-                    genetic_code = int(feature["transl_table"])
-
-                if has_partial_start or has_partial_end:
-                    start_shift = (
-                        0
-                        if "codon_start" not in feature
-                        else int(feature["codon_start"]) - 1
-                    )  # -1 is to be in zero based index.
-
-                    coordinates = fix_partial_gene_coordinates(
-                        coordinates,
-                        is_complement=is_complement,
-                        start_shift=start_shift,
-                    )
-
-            strand = "-" if is_complement else "+"
-
-            gene = create_gene(
-                org=organism,
-                contig=contig,
-                gene_counter=gene_counter,
-                rna_counter=rna_counter,
-                gene_id=feature["locus_tag"],
-                dbxrefs=feature["db_xref"],
-                coordinates=coordinates,
-                strand=strand,
-                gene_type=feature["feature_type"],
-                position=contig.number_of_genes,
-                gene_name=feature["gene"],
-                product=feature["product"],
-                genetic_code=genetic_code,
-                protein_id=feature["protein_id"],
-            )
-
-            gene.add_sequence(get_dna_sequence(sequence, gene))
-
-            if feature["feature_type"] == "CDS":
-                gene_counter += 1
-            else:
-                rna_counter += 1
+                if feature.kind == "CDS":
+                    gene_counter += 1
+                else:
+                    rna_counter += 1
 
     genome_metadata, contig_to_uniq_metadata = combine_contigs_metadata(
         contig_to_metadata
     )
-
     if genome_metadata:
         organism.add_metadata(
             metadata=Metadata(source="annotation_file", **genome_metadata)
@@ -898,7 +669,7 @@ def read_org_gff(
         attributes_get = {}
         for att in attributes_field:
             try:
-                (key, value) = att.strip().split("=")
+                key, value = att.strip().split("=")
                 attributes_get[key.upper()] = value
             except ValueError:
                 pass  # we assume that it is a strange, but useless field for our analysis
@@ -1624,20 +1395,10 @@ def read_annotations(
     pangenome.status["geneSequences"] = "Computed"
     # we assume there are gene sequences in the annotation files,
     # unless a gff file without fasta is met (which is the only case where sequences can be absent)
+    genome_paths = parse_input_paths_file(organisms_file)
     args = []
-    for line in read_compressed_or_not(organisms_file):
-        if not line.strip() or line.strip().startswith("#"):
-            continue
-        elements = [el.strip() for el in line.split("\t")]
-        org_path = Path(elements[1])
-        name = elements[0]
-        circular_contigs = elements[2:]
-        if (
-            not org_path.exists()
-        ):  # Check tsv sanity test if it's not one it's the other
-            org_path = organisms_file.parent.joinpath(org_path)
-
-        args.append((name, org_path, circular_contigs, pseudo))
+    for name, path_info in genome_paths.items():
+        args.append((name, path_info["path"], path_info["circular_contigs"], pseudo))
 
     with ProcessPoolExecutor(
         mp_context=get_context("fork"),
@@ -1717,22 +1478,17 @@ def get_gene_sequences_from_fastas(
     :param disable_bar: Flag to disable progress bar
     """
     fasta_dict = {}
-    for line in read_compressed_or_not(fasta_files):
-        elements = [el.strip() for el in line.split("\t")]
-        if len(elements) <= 1:
-            logging.getLogger("PPanGGOLiN").error(
-                "No tabulation separator found in genome file"
-            )
-            exit(1)
+    genome_paths = parse_input_paths_file(fasta_files)
+    for genome_name, path_info in genome_paths.items():
         try:
-            org = pangenome.get_organism(elements[0])
+            org = pangenome.get_organism(genome_name)
         except KeyError:
             raise KeyError(
                 f"One of the genome in your '{fasta_files}' was not found in the pan."
                 f" This might mean that the genome names between your annotation file and "
                 f"your fasta file are different."
             )
-        with read_compressed_or_not(Path(elements[1])) as currFastaFile:
+        with read_compressed_or_not(path_info["path"]) as currFastaFile:
             fasta_dict[org] = get_contigs_from_fasta_file(org, currFastaFile)
 
             # When dealing with GFF files, some genes may have coordinates extending beyond the actual
@@ -1821,22 +1577,14 @@ def annotate_pangenome(
         f"Reading {fasta_list} the list of genome files"
     )
 
+    genome_paths = parse_input_paths_file(fasta_list)
     arguments = []  # Argument given to annotate organism in same order than prototype
-    for line in read_compressed_or_not(fasta_list):
-
-        elements = [el.strip() for el in line.split("\t")]
-        org_path = Path(elements[1])
-
-        if (
-            not org_path.exists()
-        ):  # Check tsv sanity test if it's not one it's the other
-            org_path = fasta_list.parent.joinpath(org_path)
-
+    for genome_name, path_info in genome_paths.items():
         arguments.append(
             (
-                elements[0],
-                org_path,
-                elements[2:],
+                genome_name,
+                path_info["path"],
+                path_info["circular_contigs"],
                 tmpdir,
                 translation_table,
                 norna,
@@ -1845,9 +1593,6 @@ def annotate_pangenome(
                 procedure,
             )
         )
-
-    if len(arguments) == 0:
-        raise Exception("There are no genomes in the provided file")
 
     logging.getLogger("PPanGGOLiN").info(
         f"Annotating {len(arguments)} genomes using {cpu} cpus..."
@@ -1975,6 +1720,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "annotate", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Annotate genomes"
+    parser.category = "Expert"
     parser_annot(parser)
     return parser
 
@@ -1994,16 +1741,15 @@ def parser_annot(parser: argparse.ArgumentParser):
         "--fasta",
         required=False,
         type=Path,
-        help="A tab-separated file listing the genome names, and the fasta filepath of its genomic "
-        "sequence(s) (the fastas can be compressed with gzip). One line per genome.",
+        help="A tab-separated file listing genome names and the FASTA file paths of their genomic sequences "
+        "(the FASTA files can be compressed with gzip). One line per genome.",
     )
     required.add_argument(
         "--anno",
         required=False,
         type=Path,
-        help="A tab-separated file listing the genome names, and the gff/gbff filepath of its "
-        "annotations (the files can be compressed with gzip). One line per genome. "
-        "If this is provided, those annotations will be used.",
+        help="A tab-separated file listing genome names and the GFF/GBFF file paths of their annotations "
+        "(the files can be compressed with gzip). One line per genome. If this is provided, those annotations will be used.",
     )
 
     optional = parser.add_argument_group(title="Optional arguments")
@@ -2013,21 +1759,21 @@ def parser_annot(parser: argparse.ArgumentParser):
         required=False,
         type=Path,
         default=Path(f"ppanggolin_output{date}_PID{str(os.getpid())}"),
-        help="Output directory",
+        help="Output directory.",
     )
     optional.add_argument(
         "--allow_overlap",
         required=False,
         action="store_true",
         default=False,
-        help="Use to not remove genes overlapping with RNA features.",
+        help="Use this option to keep genes overlapping with RNA features.",
     )
     optional.add_argument(
         "--norna",
         required=False,
         action="store_true",
         default=False,
-        help="Use to avoid annotating RNA features.",
+        help="Use this option to avoid annotating RNA features.",
     )
     optional.add_argument(
         "--kingdom",
@@ -2035,8 +1781,7 @@ def parser_annot(parser: argparse.ArgumentParser):
         type=str.lower,
         default="bacteria",
         choices=["bacteria", "archaea"],
-        help="Kingdom to which the prokaryota belongs to, "
-        "to know which models to use for rRNA annotation.",
+        help="Kingdom to which the prokaryote belongs, to determine which models to use for rRNA annotation.",
     )
     optional.add_argument(
         "--translation_table",
@@ -2052,14 +1797,14 @@ def parser_annot(parser: argparse.ArgumentParser):
         "--basename",
         required=False,
         default="pangenome",
-        help="basename for the output file",
+        help="Basename for the output file.",
     )
     optional.add_argument(
         "--use_pseudo",
         required=False,
         action="store_true",
         help="In the context of provided annotation, use this option to read pseudogenes. "
-        "(Default behavior is to ignore them)",
+        "(Default behavior is to ignore them).",
     )
     optional.add_argument(
         "-p",
@@ -2068,8 +1813,7 @@ def parser_annot(parser: argparse.ArgumentParser):
         type=str.lower,
         choices=["single", "meta"],
         default=None,
-        help="Allow to force the prodigal procedure. "
-        "If nothing given, PPanGGOLiN will decide in function of contig length",
+        help="Allow forcing the Prodigal procedure. If not specified, PPanGGOLiN will decide based on contig length.",
     )
     optional.add_argument(
         "-c",
@@ -2077,14 +1821,14 @@ def parser_annot(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
     optional.add_argument(
         "--tmpdir",
         required=False,
         type=str,
         default=Path(tempfile.gettempdir()),
-        help="directory for storing temporary files",
+        help="Directory for storing temporary files.",
     )
 
 
