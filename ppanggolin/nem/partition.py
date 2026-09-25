@@ -34,7 +34,6 @@ nem_index = None
 
 def run_partitioning(
     nem_input: tuple,
-    nem_dir_path: Path,
     nb_org: int,
     beta: float = 2.5,
     free_dispersion: bool = False,
@@ -71,6 +70,7 @@ def run_partitioning(
         itermax=itermax,
         just_log_likelihood=just_log_likelihood,
     )
+
 
 def nem_single(
     args: Tuple[tuple, int, float, bool, int, str, int, bool]
@@ -136,7 +136,7 @@ def build_nem_index():
     :return: the index, also cached in the module-level `nem_index`
     """
     global nem_index
-    pan.organisms
+    organisms = list(pan.organisms)
     org_index = {org: i for i, org in enumerate(pan.organisms)}
     families = list(pan.gene_families)
     fam_index = {fam: i for i, fam in enumerate(families)}
@@ -155,7 +155,7 @@ def build_nem_index():
             at += 1
     presence = sp.csr_matrix(
         (np.ones(n_pres, dtype=np.int8), (rows, cols)),
-        shape=(len(families), len(pan.organisms)),
+        shape=(len(families), len(organisms)),
     )
     del rows, cols
 
@@ -178,7 +178,7 @@ def build_nem_index():
             counts[at] = len(gene_pairs)
             at += 1
     coverage = sp.csr_matrix(
-        (counts, (e_rows, e_cols)), shape=(n_edges, len(pan.organisms))
+        (counts, (e_rows, e_cols)), shape=(n_edges, len(organisms))
     )
     del e_rows, e_cols, counts
 
@@ -192,6 +192,7 @@ def build_nem_index():
         "pangenome": pan,
     }
     return nem_index
+
 
 def build_nem_input(organisms: set, sm_degree: int = 10) -> tuple:
     """
