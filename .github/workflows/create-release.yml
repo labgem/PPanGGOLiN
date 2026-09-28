@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: read
 
 jobs:
   create-release:
@@ -32,10 +31,10 @@ jobs:
             exit 1
           fi
 
-      - name: Checkout main
+      - name: Checkout master
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: master
           fetch-depth: 0
 
       - name: Get version
