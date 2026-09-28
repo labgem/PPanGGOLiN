@@ -6,7 +6,7 @@ from collections import defaultdict
 import logging
 
 # installed libraries
-from typing import Dict, Generator, Set
+from typing import Dict, Generator, Iterable, Set
 import gmpy2
 
 # local libraries
@@ -341,6 +341,14 @@ class GeneFamily(MetaFeatures):
     def number_of_genes(self) -> int:
         """Get the number of genes for the current gene family"""
         return len(self._genes_getter)
+
+
+    def set_organisms(self, organisms: Iterable[Organism]):
+        """Record which genomes carry this family without loading its genes.
+
+        :param organisms: genomes carrying at least one gene of this family
+        """
+        self._genePerOrg = defaultdict(set, {organism: set() for organism in organisms})
 
     @property
     def number_of_organisms(self) -> int:

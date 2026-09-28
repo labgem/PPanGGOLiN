@@ -111,7 +111,7 @@ def raref_nem(
 
         for fam in ppp.pan.gene_families:
             if not samp.isdisjoint(
-                set(fam.organisms)
+                {org.name for org in fam.organisms}
             ):  # otherwise, useless to keep track of
                 families.add(fam)
                 cpt_partition[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
@@ -601,7 +601,7 @@ def make_rarefaction_curve(
                 "Estimating the number of partitions..."
             )
             kval = ppp.evaluate_nb_partitions(
-                organisms=set(pangenome.organisms),
+                organisms={org.name for org in pangenome.organisms},
                 sm_degree=sm_degree,
                 free_dispersion=free_dispersion,
                 chunk_size=chunk_size,
@@ -668,7 +668,7 @@ def make_rarefaction_curve(
     ppp.build_nem_index()  # pre-fork, shared by the workers
 
     global samples
-    samples = all_samples
+    samples = [{org.name for org in samp} for samp in all_samples]
 
     args = []
     for index, samp in enumerate(samples):

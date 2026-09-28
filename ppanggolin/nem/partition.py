@@ -20,11 +20,17 @@ import scipy.sparse as sp
 from tqdm import tqdm
 import plotly.offline as out_plotly
 import plotly.graph_objs as go
+import tables
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir
-from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
+from ppanggolin.formats import (
+    check_pangenome_info,
+    columnar,
+    write_pangenome,
+    erase_pangenome,
+)
 from ppanggolin.nem.pynem_backend import solve
 
 pan = Pangenome()
@@ -136,8 +142,8 @@ def build_nem_index():
     :return: the index, also cached in the module-level `nem_index`
     """
     global nem_index
-    organisms = list(pan.organisms)
-    org_index = {org: i for i, org in enumerate(pan.organisms)}
+    organisms = sorted(org.name for org in pan.organisms)
+    org_index = {name: i for i, name in enumerate(organisms)}
     families = list(pan.gene_families)
     fam_index = {fam: i for i, fam in enumerate(families)}
 
@@ -151,7 +157,7 @@ def build_nem_index():
     for i, fam in enumerate(families):
         for org in fam.organisms:
             rows[at] = i
-            cols[at] = org_index[org]
+            cols[at] = org_index[org.name]
             at += 1
     presence = sp.csr_matrix(
         (np.ones(n_pres, dtype=np.int8), (rows, cols)),
@@ -174,7 +180,7 @@ def build_nem_index():
         tgt[e] = fam_index[edge.target]
         for org, gene_pairs in edge.get_organisms_dict().items():
             e_rows[at] = e
-            e_cols[at] = org_index[org]
+            e_cols[at] = org_index[org.name]
             counts[at] = len(gene_pairs)
             at += 1
     coverage = sp.csr_matrix(
@@ -194,11 +200,37 @@ def build_nem_index():
     return nem_index
 
 
+def load_families_for_writing(pangenome: Pangenome, index: dict):
+    """
+    Create the family and genome objects the writers need, nothing else.
+
+    :param pangenome: pangenome to populate
+    :param index: columnar index the genomes and families are taken from
+    """
+    from ppanggolin.genome import Organism
+    from ppanggolin.geneFamily import GeneFamily
+
+    organisms = []
+    for name in index["org_index"]:
+        organism = Organism(name)
+        pangenome.add_organism(organism)
+        organisms.append(organism)
+
+    presence = index["presence"]
+    for i, name in enumerate(index["fam_names"]):
+        family = GeneFamily(family_id=i, name=name)
+        family.set_organisms(
+            organisms[j]
+            for j in presence.indices[presence.indptr[i] : presence.indptr[i + 1]]
+        )
+        pangenome.add_gene_family(family)
+
+
 def build_nem_input(organisms: set, sm_degree: int = 10) -> tuple:
     """
     Slice NEM's inputs out of the precomputed index.
 
-    :param organisms: genomes in this chunk
+    :param organisms: names of the genomes in this chunk
     :param sm_degree: maximum degree of a node included in the smoothing
 
     :return: (presence, graph, index_fam, edges_weight, nb_fam)
@@ -511,15 +543,23 @@ def partition(
             "You asked to draw the ICL curves but did not provide an output directory!"
         )
     check_pangenome_former_partition(pangenome, force)
-    check_pangenome_info(
-        pangenome,
-        need_annotations=True,
-        need_families=True,
-        need_graph=True,
-        disable_bar=disable_bar,
-    )
-    organisms = set(pangenome.organisms)
-    build_nem_index()
+
+    global nem_index
+    if pangenome.status["neighborsGraph"] == "inFile":
+        with tables.open_file(pangenome.file, "r") as h5f:
+            nem_index = columnar.build_index(h5f)
+        nem_index["pangenome"] = pangenome
+        load_families_for_writing(pangenome, nem_index)
+    else:
+        check_pangenome_info(
+            pangenome,
+            need_annotations=True,
+            need_families=True,
+            need_graph=True,
+            disable_bar=disable_bar,
+        )
+        build_nem_index()
+    organisms = set(nem_index["org_index"])
 
     if len(organisms) <= 10:
         logging.getLogger("PPanGGOLiN").warning(
