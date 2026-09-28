@@ -1,6 +1,6 @@
 # Metadata and Pangenome
 
-## Associating Metadata to Pangenome Elements
+## Associating Metadata with Pangenome Elements
 
 The `metadata` command allows the addition of metadata linked to various pangenome elements. Metadata can be associated with genes, genomes, families, RGPs, spots, and modules using a simple TSV file. 
 
@@ -25,7 +25,7 @@ Certain information (such as species, strain, and dbx_ref) is extracted from gen
 
 ### Metadata Format
 
-PPanGGOLiN offers a highly flexible metadata file format. Only one column name is mandatory, and it aligns with the assignment argument chosen by the user (ie. families, RGPS...).
+PPanGGOLiN offers a highly flexible metadata file format. Only one column name is mandatory, and it aligns with the assignment argument chosen by the user (*i.e.* families, RGPS...).
 
 For instance, the TSV file used to assign metadata to gene families for functional annotation might resemble the following:
 
@@ -40,6 +40,67 @@ For instance, the TSV file used to assign metadata to gene families for function
 ```{note} 
 As you can see in the above table, one element (here GF_2) can be associated with with multiple metadata entries.
 ```
+
+The file has to respect the following rules:
+
+- it is tab-separated and has a header line;
+- it contains at least two columns, one of them named after the `--assign` value;
+- every column name is a valid identifier, that is, it only contains letters, digits and underscores, and does not start with a digit. Column names such as `E-value`, `hmm acc` or `target name` are rejected and have to be renamed;
+- a cell containing a single `-` is interpreted as a missing value.
+
+### Example: annotating gene families with Pfam
+
+The following example shows the complete process of annotating the gene families of a pangenome with [Pfam](https://www.ebi.ac.uk/interpro/), and adding the result to the pangenome.
+
+**1. Export the representative sequences of the gene families**
+
+Each gene family of the pangenome is represented by one sequence, which can be written with the `fasta` command (see [how to write Gene families sequences](./writeFasta.md#gene-families) for more details):
+
+```bash
+ppanggolin fasta -p pangenome.h5 --output MY_PROT --prot_families all
+```
+
+This creates the file `MY_PROT/all_protein_families.faa`, containing one protein sequence per gene family. The identifier of each sequence is the identifier of the gene family it represents, which is precisely what has to be given back to PPanGGOLiN in the next steps.
+
+**2. Annotate the sequences with Pfam**
+
+The resulting FASTA file can then be given to any annotation tool. For Pfam, this is typically done with [HMMER](http://hmmer.org/) against the `Pfam-A.hmm` database, or with the `pfam_scan.pl` script distributed by Pfam:
+
+```bash
+hmmsearch --cut_ga --tblout pfam_hits.txt Pfam-A.hmm MY_PROT/all_protein_families.faa
+```
+
+**3. Format the result as a PPanGGOLiN metadata file**
+
+The output of the annotation tool has to be turned into a TSV file respecting the rules given above. In practice this means keeping the columns of interest, renaming the column holding the gene family identifiers to `families`, and renaming any column whose name is not a valid identifier.
+
+For instance, an annotation result looks like this:
+
+| query_name | accession  | target_name | E-value | score | description_of_target         |
+|------------|------------|-------------|---------|-------|-------------------------------|
+| GF_1       | PF00005.30 | ABC_tran    | 1.2e-45 | 152.3 | ABC transporter               |
+| GF_2       | PF07690.19 | MFS1        | 3.4e-30 | 101.7 | Major facilitator superfamily |
+
+becomes:
+
+| families | pfam_name | pfam_accession | e_value | score  | description                   |
+|----------|-----------|----------------|---------|--------|-------------------------------|
+| GF_1     | ABC_tran  | PF00005.30     | 1.2e-45 | 152.3  | ABC transporter               |
+| GF_2     | MFS_1     | PF07690.19     | 3.4e-30 | 101.7  | Major facilitator superfamily |
+
+Only the column names change: the `query_name` column, which holds the gene family identifiers written at step 1, is renamed to `families`, and `E-value` is renamed to `e_value` so that it is a valid identifier. The remaining columns are free, both in number and in name.
+
+```{note}
+The order of the columns does not matter. PPanGGOLiN identifies the columns by their name, so the `families` column can be anywhere in the file.
+```
+
+**4. Add the annotations to the pangenome**
+
+```bash
+ppanggolin metadata -p pangenome.h5 --metadata pfam_families.tsv --source pfam --assign families
+```
+
+The annotations are now stored in the pangenome under the source `pfam`, and are propagated to the outputs described above. A gene family matched by several Pfam entries simply appears on several lines, as shown in the previous section.
 
 ### Command Specific Option Details
 

@@ -554,27 +554,24 @@ def add_workflow_args(parser: argparse.ArgumentParser):
         "--fasta",
         required=False,
         type=Path,
-        help="A tab-separated file listing the genome names, "
-        "and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). "
-        "One line per genome. This option can be used alone.",
+        help="A tab-separated file listing genome names and the FASTA file paths of their genomic sequence(s) "
+        "(the FASTA files can be compressed). One line per genome. This option can be used alone.",
     )
 
     required.add_argument(
         "--anno",
         required=False,
         type=Path,
-        help="A tab-separated file listing the genome names, and the gff filepath of "
-        "its annotations (the gffs can be compressed). One line per genome. "
-        "This option can be used alone IF the fasta sequences are in the gff files, "
-        "otherwise --fasta needs to be used.",
+        help="A tab-separated file listing genome names and the GFF file paths of their annotations "
+        "(the GFF files can be compressed). One line per genome. This option can be used alone if the FASTA "
+        "sequences are already present in the GFF files; otherwise, --fasta must be used.",
     )
 
     required.add_argument(
         "--clusters",
         required=False,
         type=Path,
-        help="a tab-separated file listing the cluster names, the gene IDs, "
-        "and optionally whether they are a fragment or not.",
+        help="A tab-separated file listing cluster names, gene IDs, and optionally whether they are fragments.",
     )
 
     optional = parser.add_argument_group(title="Optional arguments")
@@ -585,14 +582,14 @@ def add_workflow_args(parser: argparse.ArgumentParser):
         required=False,
         type=Path,
         default=Path(f"ppanggolin_output{date}_PID{str(os.getpid())}"),
-        help="Output directory",
+        help="Output directory.",
     )
 
     optional.add_argument(
         "--basename",
         required=False,
         default="pangenome",
-        help="basename for the output file",
+        help="Basename for the output file.",
     )
 
     optional.add_argument(
@@ -600,7 +597,7 @@ def add_workflow_args(parser: argparse.ArgumentParser):
         required=False,
         action="store_true",
         dest="rarefaction_flag",
-        help="Use to compute the rarefaction curves (WARNING: can be time consuming)",
+        help="Compute the rarefaction curves. Warning: this can be time consuming.",
     )
 
     optional.add_argument(
@@ -609,7 +606,7 @@ def add_workflow_args(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
 
     optional.add_argument(
@@ -629,8 +626,7 @@ def add_workflow_args(parser: argparse.ArgumentParser):
         type=str.lower,
         default="bacteria",
         choices=["bacteria", "archaea"],
-        help="Kingdom to which the prokaryota belongs to, "
-        "to know which models to use for rRNA annotation.",
+        help="Kingdom to which the prokaryote belongs, to determine which models to use for rRNA annotation.",
     )
 
     optional.add_argument(
@@ -638,8 +634,8 @@ def add_workflow_args(parser: argparse.ArgumentParser):
         required=False,
         default="1",
         choices=["0", "1", "2", "3"],
-        help="the cluster mode of MMseqs2. 0: Setcover, 1: single linkage (or connected component),"
-        " 2: CD-HIT-like, 3: CD-HIT-like (lowmem)",
+        help="MMseqs2 clustering mode: 0 = Setcover, 1 = single linkage (or connected component), "
+        "2 = CD-HIT-like, 3 = CD-HIT-like (lowmem).",
     )
 
     optional.add_argument(
@@ -647,7 +643,7 @@ def add_workflow_args(parser: argparse.ArgumentParser):
         required=False,
         type=restricted_float,
         default=0.8,
-        help="Minimal coverage of the alignment for two proteins to be in the same cluster",
+        help="Minimum coverage of the alignment for two proteins to be in the same cluster.",
     )
 
     optional.add_argument(
@@ -655,15 +651,14 @@ def add_workflow_args(parser: argparse.ArgumentParser):
         required=False,
         type=restricted_float,
         default=0.8,
-        help="Minimal identity percent for two proteins to be in the same cluster",
+        help="Minimum identity percentage for two proteins to be in the same cluster.",
     )
 
     optional.add_argument(
         "--infer_singletons",
         required=False,
         action="store_true",
-        help="Use this option together with --clusters. "
-        "If a gene is not present in the provided clustering result file, "
+        help="Use this option together with --clusters. If a gene is not present in the provided clustering result file, "
         "it will be assigned to its own unique cluster as a singleton.",
     )
 
@@ -672,7 +667,7 @@ def add_workflow_args(parser: argparse.ArgumentParser):
         required=False,
         action="store_true",
         help="In the context of provided annotation, use this option to read pseudogenes. "
-        "(Default behavior is to ignore them)",
+        "(Default behavior is to ignore them).",
     )
 
     optional.add_argument(
@@ -690,7 +685,7 @@ def add_workflow_args(parser: argparse.ArgumentParser):
         "--no_defrag",
         required=False,
         action="store_true",
-        help="DO NOT Realign gene families to link fragments with their non-fragmented gene family.",
+        help="Do not realign gene families to link fragments with their non-fragmented gene family.",
     )
 
     optional.add_argument(
@@ -704,5 +699,5 @@ def add_workflow_args(parser: argparse.ArgumentParser):
         required=False,
         type=str,
         default=Path(tempfile.gettempdir()),
-        help="directory for storing temporary files",
+        help="Directory for storing temporary files.",
     )

@@ -827,7 +827,11 @@ def parser_context(parser: argparse.ArgumentParser):
         description="All of the following arguments are required :",
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome.h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
     required.add_argument(
         "-o",
@@ -838,24 +842,24 @@ def parser_context(parser: argparse.ArgumentParser):
         + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())
         + "_PID"
         + str(os.getpid()),
-        help="Output directory where the file(s) will be written",
+        help="Output directory where the file(s) will be written.",
     )
     onereq = parser.add_argument_group(
-        title="Input file", description="One of the following argument is required :"
+        title="Input file", description="One of the following arguments is required:"
     )
     onereq.add_argument(
         "-S",
         "--sequences",
         required=False,
         type=Path,
-        help="Fasta file with the sequences of interest",
+        help="FASTA file with the sequences of interest.",
     )
     onereq.add_argument(
         "-F",
         "--family",
         required=False,
         type=Path,
-        help="List of family IDs of interest from the pangenome",
+        help="List of family IDs of interest from the pangenome.",
     )
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument(
@@ -865,8 +869,7 @@ def parser_context(parser: argparse.ArgumentParser):
         type=int,
         default=4,
         help="Size of the transitive closure used to build the graph. This indicates the number of "
-        "non related genes allowed in-between two related genes. Increasing it will improve "
-        "precision but lower sensitivity a little.",
+        "unrelated genes allowed between two related genes. Increasing it will improve precision but lower sensitivity slightly.",
     )
     optional.add_argument(
         "-w",
@@ -874,8 +877,7 @@ def parser_context(parser: argparse.ArgumentParser):
         required=False,
         type=int,
         default=5,
-        help="Number of neighboring genes that are considered on each side of "
-        "a gene of interest when searching for conserved genomic contexts.",
+        help="Number of neighboring genes considered on each side of a gene of interest when searching for conserved genomic contexts.",
     )
 
     optional.add_argument(
@@ -884,25 +886,23 @@ def parser_context(parser: argparse.ArgumentParser):
         required=False,
         type=restricted_float,
         default=0.85,
-        help="minimum jaccard similarity used to filter edges between gene families. Increasing it "
-        "will improve precision but lower sensitivity a lot.",
+        help="Minimum Jaccard similarity used to filter edges between gene families. Increasing it will improve precision but lower sensitivity considerably.",
     )
     optional.add_argument(
         "--graph_format",
-        help="Format of the context graph. Can be gexf or graphml.",
+        help="Format of the context graph. Can be GEXF or GraphML.",
         default="graphml",
         choices=["gexf", "graphml"],
     )
     align = parser.add_argument_group(
         title="Alignment arguments",
-        description="This argument makes sense only when --sequence is provided.",
+        description="This argument only makes sense when --sequence is provided.",
     )
     align.add_argument(
         "--no_defrag",
         required=False,
         action="store_true",
-        help="DO NOT Realign gene families to link fragments with"
-        "their non-fragmented gene family.",
+        help="Do not realign gene families to link fragments with their non-fragmented gene family.",
     )
     align.add_argument(
         "--fast",
@@ -917,14 +917,14 @@ def parser_context(parser: argparse.ArgumentParser):
         required=False,
         type=float,
         default=0.8,
-        help="min identity percentage threshold",
+        help="Minimum identity percentage threshold.",
     )
     align.add_argument(
         "--coverage",
         required=False,
         type=float,
         default=0.8,
-        help="min coverage percentage threshold",
+        help="Minimum coverage percentage threshold.",
     )
     align.add_argument(
         "--translation_table",
@@ -940,14 +940,14 @@ def parser_context(parser: argparse.ArgumentParser):
         required=False,
         type=str,
         default=Path(tempfile.gettempdir()),
-        help="directory for storing temporary files",
+        help="Directory for storing temporary files.",
     )
     align.add_argument(
         "--keep_tmp",
         required=False,
         default=False,
         action="store_true",
-        help="Keeping temporary files (useful for debugging).",
+        help="Keep temporary files (useful for debugging).",
     )
     align.add_argument(
         "-c",
@@ -955,7 +955,7 @@ def parser_context(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
 
 

@@ -223,7 +223,11 @@ def parser_module(parser: argparse.ArgumentParser):
         description="One of the following arguments is required :",
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument(
@@ -266,7 +270,7 @@ def parser_module(parser: argparse.ArgumentParser):
         required=False,
         type=restricted_float,
         default=0.85,
-        help="minimum jaccard similarity used to filter edges between gene families. "
+        help="Minimum Jaccard similarity used to filter edges between gene families. "
         "Increasing it will improve precision but lower sensitivity a lot.",
     )
 
@@ -276,7 +280,7 @@ def parser_module(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
 
 

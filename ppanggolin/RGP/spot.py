@@ -352,7 +352,11 @@ def parser_spot(parser: argparse.ArgumentParser):
         description="One of the following arguments is required :",
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument(
@@ -364,7 +368,7 @@ def parser_spot(parser: argparse.ArgumentParser):
             f"ppanggolin_output{time.strftime('DATE%Y-%m-%d_HOUR%H.%M.%S', time.localtime())}"
             f"_PID{str(os.getpid())}"
         ),
-        help="Output directory",
+        help="Output directory.",
     )
     optional.add_argument(
         "--spot_graph",

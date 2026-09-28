@@ -1,5 +1,6 @@
 # tests/functional_tests/test_stepbystep.py
 from pathlib import Path
+import networkx as nx
 import pytest
 
 from tests.utils.run_ppanggolin import run_ppanggolin_command
@@ -64,3 +65,17 @@ def test_stepbystep_outputs(
         fpath = Path(outdir) / fname
         assert fpath.exists(), f"Expected file {fname} not found after `{cmd}`"
         assert fpath.stat().st_size > 0, f"File {fname} is empty after `{cmd}`"
+
+        if ".gexf" in fname:
+            # Existence is not enough: a malformed header still writes a
+            # non-empty file that no namespace-aware parser can read.
+            try:
+                graph = nx.read_gexf(fpath)
+            except Exception as err:
+                pytest.fail(f"{fname} was written but could not be parsed back: {err}")
+            assert graph.number_of_nodes() > 0, f"{fname} parsed but has no nodes"
+            # Fixing only the default namespace and leaving xmlns:viz behind
+            # still parses, but drops every colour and size.
+            assert any(
+                "viz" in data for _, data in graph.nodes(data=True)
+            ), f"{fname} parsed but its viz attributes were dropped"

@@ -91,7 +91,7 @@ def print_info(
     if not (status or content or parameters or metadata):
         status, content, parameters, metadata = (True, True, True, True)
 
-    h5f = tables.open_file(pangenome, "r+")
+    h5f = tables.open_file(pangenome, "r")
     if status:
         print_yaml(read_status(h5f))
     if content:
@@ -146,7 +146,7 @@ def parser_info(parser: argparse.ArgumentParser):
         "--pangenome",
         required=True,
         type=Path,
-        help="Path to the pangenome .h5 file",
+        help="Path to the pangenome .h5 file.",
     )
 
     options = parser.add_argument_group(

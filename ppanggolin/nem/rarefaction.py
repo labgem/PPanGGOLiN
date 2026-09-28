@@ -136,8 +136,8 @@ def raref_nem(
 
             while not all(val >= condition for val in org_nb_sample.values()):
                 # each family must be tested at least len(select_organisms)/chunk_size times.
-                shuffled_orgs = list(samp)  # copy select_organisms
-                random.shuffle(shuffled_orgs)  # shuffle the copied list
+                shuffled_orgs = ppp.ordered_organisms(samp)
+                random.shuffle(shuffled_orgs)  # seeded shuffle
                 while len(shuffled_orgs) > chunk_size:
                     org_samples.append(set(shuffled_orgs[:chunk_size]))
                     for org in org_samples[-1]:
@@ -784,7 +784,11 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
         description="One of the following arguments is required :",
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
 
     optional = parser.add_argument_group(title="Optional arguments")
@@ -837,7 +841,7 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
             f"ppanggolin_output{time.strftime('DATE%Y-%m-%d_HOUR%H.%M.%S', time.localtime())}"
             f"_PID{str(os.getpid())}"
         ),
-        help="Output directory",
+        help="Output directory.",
     )
     optional.add_argument(
         "-fd",
@@ -905,14 +909,14 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
     optional.add_argument(
         "--tmpdir",
         required=False,
         type=str,
         default=Path(tempfile.gettempdir()),
-        help="directory for storing temporary files",
+        help="Directory for storing temporary files.",
     )
 
 

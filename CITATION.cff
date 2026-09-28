@@ -1,0 +1,106 @@
+cff-version: 1.2.0
+message: If you use PPanGGOLiN in your research, please cite the software and the relevant publications.
+title: 'PPanGGOLiN'
+type: software
+authors:
+- given-names: Jérôme
+  family-names: Arnoux
+  orcid: https://orcid.org/0000-0003-2769-3006
+- given-names: Jean
+  family-names: Mainguy
+  orcid: https://orcid.org/0009-0006-9160-9744
+- given-names: Adelme
+  family-names: Bazin
+  orcid: https://orcid.org/0000-0002-5656-4708
+- given-names: Guillaume
+  family-names: Gautreau
+  orcid: https://orcid.org/0000-0002-0970-9361
+- given-names: Téo
+  family-names: Lemane
+  orcid: https://orcid.org/0000-0002-7210-3178
+- given-names: David
+  family-names: Vallenet
+  orcid: https://orcid.org/0000-0001-6648-0332
+- given-names: Alexandra
+  family-names: Calteau
+  orcid: https://orcid.org/0000-0002-5871-9347
+repository-code: https://github.com/labgem/PPanGGOLiN
+license: CECILL-2.1
+
+preferred-citation:
+  type: article
+  title: "PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph"
+  authors:
+    - family-names: Gautreau
+      given-names: Guillaume
+    - family-names: Bazin
+      given-names: Adelme
+    - family-names: Gachet
+      given-names: Mathieu
+    - family-names: Planel
+      given-names: Rémi
+    - family-names: Burlot
+      given-names: Laura
+    - family-names: Dubois
+      given-names: Mathieu
+    - family-names: Perrin
+      given-names: Amandine
+    - family-names: Médigue
+      given-names: Claudine
+    - family-names: Calteau
+      given-names: Alexandra
+    - family-names: Cruveiller
+      given-names: Stéphane
+    - family-names: Matias
+      given-names: Catherine
+    - family-names: Ambroise
+      given-names: Christophe
+    - family-names: Rocha
+      given-names: "Eduardo P. C."
+    - family-names: Vallenet
+      given-names: David
+  journal: "PLOS Computational Biology"
+  volume: 16
+  issue: 3
+  pages: "e1007732"
+  date-released: 2020-03-19
+  doi: "10.1371/journal.pcbi.1007732"
+  url: "https://doi.org/10.1371/journal.pcbi.1007732"
+
+references:
+  - type: article
+    title: "panRGP: a pangenome-based method to predict genomic islands and explore their diversity"
+    authors:
+      - family-names: Bazin
+        given-names: Adelme
+      - family-names: Gautreau
+        given-names: Guillaume
+      - family-names: Médigue
+        given-names: Claudine
+      - family-names: Vallenet
+        given-names: David
+      - family-names: Calteau
+        given-names: Alexandra
+    journal: "Bioinformatics"
+    volume: 36
+    pages: "i651–i658"
+    date-released: 2020-12-30
+    doi: "10.1093/bioinformatics/btaa792"
+    url: "https://doi.org/10.1093/bioinformatics/btaa792"
+    
+  - type: article
+    title: "panModule: detecting conserved modules in the variable regions of a pangenome graph"
+    authors:
+      - family-names: Bazin
+        given-names: Adelme
+      - family-names: Médigue
+        given-names: Claudine
+      - family-names: Vallenet
+        given-names: David
+      - family-names: Calteau
+        given-names: Alexandra
+    publisher:
+      name: "bioRxiv"
+    date-released: 2021-12-07
+    doi: "10.1101/2021.12.06.471380"
+    url: "https://doi.org/10.1101/2021.12.06.471380"

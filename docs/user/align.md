@@ -9,6 +9,10 @@ This command is used as follows:
 ppanggolin align -p pangenome.h5 -o MYOUTPUTDIR --sequences MY_SEQUENCES_OF_INTEREST.fasta
 ```
 
+
+An example file containing proteins of interest from *Chlamydia trachomatis* can be found in the [testingDataset](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/some_chlam_proteins.fasta) directory. 
+
+
 ## Output files
 By default the command creates two output files:
 
