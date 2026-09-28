@@ -28,6 +28,10 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "panmodule", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = (
+        "Easy workflow to run a pangenome analysis with module prediction"
+    )
+    parser.category = "Basic"
 
     add_workflow_args(parser)
 

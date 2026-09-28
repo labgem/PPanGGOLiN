@@ -68,7 +68,7 @@ By default, it uses parameters that we have found to be generally the best for w
 
 ### Input files
 
-The file `GENOMES_FASTA_LIST` is a tsv-separated file with the following organization :
+The file `GENOMES_FASTA_LIST` is a tab separated values (TSV) file with the following organization:
 
 1. The first column contains a unique genome name **(without space)**
 2. The second column contains the path to the associated FASTA file

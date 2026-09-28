@@ -218,9 +218,9 @@ def write_gexf_header(gexf: TextIO, light: bool = True):
     if not light:
         index = pan.get_org_index()  # has been computed already
     gexf.write(
-        '<?xml version="1.1" encoding="UTF-8"?>\n<gexf xmlns:viz="https://www.gexf.net/1.2draft/viz"'
-        ' xmlns="https://www.gexf.net/1.2draft" version="1.2">\n'
-    )  # TODO update link
+        '<?xml version="1.1" encoding="UTF-8"?>\n<gexf xmlns:viz="http://www.gexf.net/1.2draft/viz"'
+        ' xmlns="http://www.gexf.net/1.2draft" version="1.2">\n'
+    )
     gexf.write('  <graph mode="static" defaultedgetype="undirected">\n')
     gexf.write('    <attributes class="node" mode="static">\n')
     gexf.write('      <attribute id="0" title="nb_genes" type="long" />\n')
@@ -1686,6 +1686,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "write_pangenome", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Writes 'flat' files that represent the pangenome and its elements for use with other software."
+    parser.category = "Output"
     parser_flat(parser)
     return parser
 
@@ -1701,14 +1703,18 @@ def parser_flat(parser: argparse.ArgumentParser):
         description="One of the following arguments is required :",
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
     required.add_argument(
         "-o",
         "--output",
         required=True,
         type=Path,
-        help="Output directory where the file(s) will be written",
+        help="Output directory where the file(s) will be written.",
     )
     optional = parser.add_argument_group(title="Optional arguments")
 
@@ -1849,7 +1855,7 @@ def parser_flat(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
 
 

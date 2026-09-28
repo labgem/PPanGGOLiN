@@ -1,0 +1,36 @@
+.wy-table-responsive table {
+  width: 100% !important;
+  table-layout: fixed;
+}
+
+/* .wy-table-responsive {
+  overflow-x: auto;
+} */
+
+.rst-content table.docutils td,
+.rst-content table.docutils th {
+  white-space: normal;
+  /* word-wrap: break-word; */
+  overflow-wrap: anywhere;
+  /* vertical-align: top; */
+}
+
+.rst-content table.docutils th:nth-child(1),
+.rst-content table.docutils td:nth-child(1) {
+  width: 18%;
+}
+
+.rst-content table.docutils th:nth-child(2),
+.rst-content table.docutils td:nth-child(2) {
+  width: 12%;
+}
+
+.rst-content table.docutils th:nth-child(3),
+.rst-content table.docutils td:nth-child(3) {
+  width: 15%;
+}
+
+.rst-content table.docutils th:nth-child(4),
+.rst-content table.docutils td:nth-child(4) {
+  width: 55%;
+}

@@ -341,6 +341,15 @@ def nem_samples(
     return partition_nem(*pack)
 
 
+def ordered_organisms(organisms) -> list:
+    """
+    Genomes in a stable, process-independent order.
+    :param organisms: genomes to order
+    :return: the genomes sorted by name
+    """
+    return sorted(organisms, key=lambda org: org.name)
+
+
 def write_nem_input_files(
     tmpdir: Path, organisms: set, sm_degree: int = 10
 ) -> Tuple[float, int]:
@@ -355,9 +364,10 @@ def write_nem_input_files(
     """
     mk_outdir(tmpdir, force=False)
     total_edges_weight = 0
+    columns = ordered_organisms(organisms)
 
     with open(tmpdir / "column_org_file", "w") as org_file:
-        org_file.write(" ".join([f'"{org.name}"' for org in organisms]) + "\n")
+        org_file.write(" ".join([f'"{org.name}"' for org in columns]) + "\n")
 
     logging.getLogger("PPanGGOLiN").debug(
         "Writing nem_file.str nem_file.index nem_file.nei and nem_file.dat files"
@@ -374,7 +384,7 @@ def write_nem_input_files(
 
         index_org = {}
         default_dat = []
-        for index, org in enumerate(organisms):
+        for index, org in enumerate(columns):
             default_dat.append("0")
             index_org[org] = index
 
@@ -471,8 +481,9 @@ def evaluate_nb_partitions(
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
     newtmpdir = tmpdir / "eval_partitions"
 
+    random.seed(seed)  # Seeded before forking
     if len(organisms) > chunk_size:
-        select_organisms = set(random.sample(list(organisms), chunk_size))
+        select_organisms = set(random.sample(ordered_organisms(organisms), chunk_size))
     else:
         select_organisms = set(organisms)
 
@@ -533,7 +544,7 @@ def evaluate_nb_partitions(
     best_k = chosen_k
 
     if len(all_bics) > 3:
-        max_icl_k = max(all_icls, key=all_icls.get)
+        max_icl_k = max(sorted(all_icls), key=all_icls.get)
         delta_icl = (all_icls[max_icl_k] - min(all_icls.values())) * icl_margin
         best_k = min(
             {
@@ -809,8 +820,8 @@ def partition(
             prev = len(samples)  # if we've been sampling already, samples is not empty.
             while not all(val >= condition for val in org_nb_sample.values()):
                 # each family must be tested at least len(select_organisms)/chunk_size times.
-                shuffled_orgs = list(organisms)  # copy select_organisms
-                random.shuffle(shuffled_orgs)  # shuffle the copied list
+                shuffled_orgs = ordered_organisms(organisms)
+                random.shuffle(shuffled_orgs)  # seeded shuffle
                 while len(shuffled_orgs) > chunk_size:
                     samples.append(set(shuffled_orgs[:chunk_size]))
                     for org in samples[-1]:
@@ -943,6 +954,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "partition", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Partition the pangenome graph"
+    parser.category = "Expert"
     parser_partition(parser)
     return parser
 
@@ -958,7 +971,11 @@ def parser_partition(parser: argparse.ArgumentParser):
         description="One of the following arguments is required :",
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome.h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
 
     optional = parser.add_argument_group(title="Optional arguments")
@@ -988,7 +1005,7 @@ def parser_partition(parser: argparse.ArgumentParser):
             f"ppanggolin_output{time.strftime('DATE%Y-%m-%d_HOUR%H.%M.%S', time.localtime())}"
             f"_PID{str(os.getpid())}"
         ),
-        help="Output directory",
+        help="Output directory.",
     )
     optional.add_argument(
         "-fd",
@@ -1059,7 +1076,7 @@ def parser_partition(parser: argparse.ArgumentParser):
         "--seed",
         type=int,
         default=42,
-        help="seed used to generate random numbers",
+        help="Seed used to generate random numbers.",
     )
     optional.add_argument(
         "-c",
@@ -1067,14 +1084,14 @@ def parser_partition(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
     optional.add_argument(
         "--tmpdir",
         required=False,
         type=str,
         default=Path(tempfile.gettempdir()),
-        help="directory for storing temporary files",
+        help="Directory for storing temporary files.",
     )
 
 
