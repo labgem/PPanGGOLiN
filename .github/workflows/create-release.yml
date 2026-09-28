@@ -15,11 +15,23 @@ jobs:
   create-release:
     if: >
       github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'master' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'release/') &&
       startsWith(github.event.pull_request.title, 'Release ')
 
     runs-on: ubuntu-latest
 
     steps:
+      - name: Validate release head branch
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [[ ! "$HEAD_REF" =~ ^release/[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Merged PR head ref '$HEAD_REF' is not a valid release/X.Y.Z branch."
+            exit 1
+          fi
+
       - name: Checkout main
         uses: actions/checkout@v4
         with:
@@ -41,6 +53,7 @@ jobs:
       - name: Validate release PR version
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           if [[ ! "$PR_TITLE" =~ ^Release\ [0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -50,10 +63,12 @@ jobs:
           fi
 
           PR_VERSION="${PR_TITLE#Release }"
+          BRANCH_VERSION="${HEAD_REF#release/}"
 
-          if [[ "$PR_VERSION" != "$VERSION" ]]; then
+          if [[ "$PR_VERSION" != "$VERSION" || "$BRANCH_VERSION" != "$VERSION" ]]; then
             echo "::error::Release version mismatch."
             echo "::error::PR title version: $PR_VERSION"
+            echo "::error::Head branch version: $BRANCH_VERSION"
             echo "::error::VERSION file: $VERSION"
             exit 1
           fi
