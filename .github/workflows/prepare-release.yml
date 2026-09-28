@@ -103,7 +103,7 @@ jobs:
           while read -r SHA; do
             gh api \
               "repos/$GH_REPO/commits/$SHA/pulls" \
-              --jq '.[] | "\(.number)\t\(.title)"' \
+              --jq '.[] | select(.merged_at != null) | "\(.number)\t\(.title)"' \
               >> "$PRS"
           done <<< "$COMMITS"
 
