@@ -52,8 +52,13 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx_search.extension",
     "sphinxcontrib.mermaid",
+    "github_readme",  # Local extension (_ext/): renders the GitHub README as the landing page
 ]
 
+# These extensions mirror GitHub-flavored Markdown so README.md renders the same in both places
+myst_enable_extensions = ["linkify", "strikethrough", "tasklist"]
+myst_fence_as_directive = ["mermaid"]
+myst_linkify_fuzzy_links = False  # Like GitHub, only autolink http(s):// and www. URLs, not "README.md"
 
 source_suffix = {".md": "markdown"}
 
