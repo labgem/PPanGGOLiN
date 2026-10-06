@@ -14,6 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "_ext"))
 
 def generate_command_reference(_app):
     script = (

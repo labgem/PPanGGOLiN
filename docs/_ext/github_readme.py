@@ -1,7 +1,7 @@
 """Sphinx extension to reuse the GitHub README as the documentation landing page.
 
 README.md is written for GitHub. When it is pulled into the docs with MyST's ``{include}``
-directive, this extension:
+directive, this extension replaces the directive by the README content and:
 
 - rewrites GitHub alerts (``> [!NOTE]``) into MyST admonitions;
 - warns about MyST-only syntax, which GitHub would display as raw text.
@@ -12,6 +12,7 @@ fences) are handled by MyST extensions enabled in ``conf.py``.
 This module must stay importable without Sphinx so the README can be checked by the test suite.
 """
 
+import os
 import re
 from pathlib import Path
 
@@ -30,6 +31,14 @@ MYST_INLINE_SYNTAX = {
     "MyST comment": re.compile(r"^\s*%"),
     "MyST block break": re.compile(r"^\s*\+\+\+"),
 }
+
+MYST_INCLUDE = re.compile(
+    r"^(?P<fence>`{3,}|:{3,})\{include\}(?P<path>[^\n]+)\n(?P<options>(?::[^\n]*\n)*)(?P=fence)[ \t]*$",
+    flags=re.MULTILINE,
+)
+MARKDOWN_IMAGE = re.compile(
+    r"(?P<alt>!\[[^\]]*\])\((?P<target>[^)\s]+)(?P<title>[^)]*)\)"
+)
 
 
 def github_alerts_to_myst(text: str) -> str:
@@ -65,7 +74,11 @@ def find_myst_only_syntax(text: str) -> list[tuple[int, str]]:
     for line_number, line in enumerate(text.splitlines(), start=1):
         fence = FENCE.match(line)
         if open_fence is not None:
-            if fence and fence["marker"][0] == open_fence[0] and len(fence["marker"]) >= len(open_fence):
+            if (
+                fence
+                and fence["marker"][0] == open_fence[0]
+                and len(fence["marker"]) >= len(open_fence)
+            ):
                 if not fence["info"].strip():
                     open_fence = None
             continue
@@ -85,24 +98,62 @@ def find_myst_only_syntax(text: str) -> list[tuple[int, str]]:
     return issues
 
 
-def convert_included_readme(app, relative_path: Path, parent_docname: str, content: list[str]) -> None:
-    """Sphinx ``include-read`` handler converting the included README from GitHub to MyST syntax."""
-    if relative_path.name != README_NAME:
-        return
+def rebase_images(text: str, readme_dir: Path, doc_dir: Path) -> str:
+    """Make relative Markdown image paths of the README relative to the including document.
 
+    Reproduces the ``:relative-images:`` option of MyST's ``{include}`` directive.
+
+    Args:
+        text: README content.
+        readme_dir: Directory containing the README.
+        doc_dir: Directory containing the document that includes the README.
+
+    Returns:
+        The content with every relative image path rebased on ``doc_dir``.
+    """
+
+    def _replace(match: re.Match) -> str:
+        target = match["target"]
+        if re.match(r"^([a-z][a-z0-9+.-]*:|/|#)", target, flags=re.IGNORECASE):
+            return match[0]
+        rebased = Path(os.path.relpath(readme_dir / target, doc_dir)).as_posix()
+        return f"{match['alt']}({rebased}{match['title']})"
+
+    return MARKDOWN_IMAGE.sub(_replace, text)
+
+
+def expand_readme_include(app, docname: str, source: list[str]) -> None:
+    """Sphinx ``source-read`` handler inlining the README converted from GitHub to MyST syntax.
+
+    MyST's ``{include}`` directive reads the file itself, so the README cannot be converted when it
+    is included. The directive is instead replaced by the converted README content before parsing.
+    """
     from sphinx.util import logging
 
     logger = logging.getLogger(__name__)
-    for line_number, issue in find_myst_only_syntax(content[0]):
-        logger.warning(
-            "%s will not render on GitHub, use GitHub-flavored Markdown instead",
-            issue,
-            location=f"{(Path(app.srcdir) / relative_path).resolve()}:{line_number}",
-        )
-    content[0] = github_alerts_to_myst(content[0])
+    doc_path = Path(app.env.doc2path(docname))
+
+    def _replace(match: re.Match) -> str:
+        readme_path = (doc_path.parent / match["path"].strip()).resolve()
+        if readme_path.name != README_NAME:
+            return match[0]
+        app.env.note_dependency(str(readme_path))
+        text = readme_path.read_text(encoding="utf-8")
+        for line_number, issue in find_myst_only_syntax(text):
+            logger.warning(
+                "%s will not render on GitHub, use GitHub-flavored Markdown instead",
+                issue,
+                location=f"{readme_path}:{line_number}",
+            )
+        text = github_alerts_to_myst(text)
+        if re.search(r"^:relative-images:", match["options"], flags=re.MULTILINE):
+            text = rebase_images(text, readme_path.parent, doc_path.parent)
+        return text
+
+    source[0] = MYST_INCLUDE.sub(_replace, source[0])
 
 
 def setup(app):
     """Register the extension in Sphinx."""
-    app.connect("include-read", convert_included_readme)
+    app.connect("source-read", expand_readme_include)
     return {"parallel_read_safe": True, "parallel_write_safe": True}
