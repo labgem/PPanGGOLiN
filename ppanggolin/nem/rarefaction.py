@@ -107,6 +107,7 @@ def raref_nem(
                             cpt_partition[node]["U"] = len(samp)
                         validated.add(node)
 
+        rng = random.Random(f"{seed}-{index}")  # workers are reseeded at fork
         org_nb_sample = Counter()
         for org in samp:
             org_nb_sample[org] = 0
@@ -118,27 +119,27 @@ def raref_nem(
             while not all(val >= condition for val in org_nb_sample.values()):
                 # each family must be tested at least len(select_organisms)/chunk_size times.
                 shuffled_orgs = sorted(samp)
-                random.shuffle(shuffled_orgs)  # seeded shuffle
+                rng.shuffle(shuffled_orgs)
                 while len(shuffled_orgs) > chunk_size:
                     org_samples.append(set(shuffled_orgs[:chunk_size]))
                     for org in org_samples[-1]:
                         org_nb_sample[org] += 1
                     shuffled_orgs = shuffled_orgs[chunk_size:]
-            # making arguments for all samples:
-            for samp in org_samples:
+            for chunk in org_samples:
                 *_, edges_weight, nb_fam = nem_input = ppp.build_nem_input(
-                    ppp.subset_nem_index(sample, samp), sm_degree
+                    ppp.subset_nem_index(sample, chunk), sm_degree
                 )
                 validate_family(
                     ppp.run_partitioning(
                         nem_input,
-                        len(samp),
+                        len(chunk),
                         beta * (nb_fam / edges_weight),
                         free_dispersion,
                         kval=kval,
                         init="param_file",
                     )
                 )
+            condition += 1  # if families are left to validate, resample more
     if len(cpt_partition) == 0:
         counts = {
             "persistent": "NA",
@@ -603,6 +604,7 @@ def make_rarefaction_curve(
             )
 
     logging.getLogger("PPanGGOLiN").info("Extracting samples ...")
+    random.seed(seed)
     all_samples = []
     for i in range(min_sampling, max_sampling):  # each point
         for _ in range(depth):  # number of samples per points
