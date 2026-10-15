@@ -8,11 +8,12 @@ from multiprocessing import get_context
 import os
 import argparse
 from collections import defaultdict, Counter
+from dataclasses import dataclass
 import math
 from pathlib import Path
 
 # installed libraries
-from typing import Union, Tuple, List
+from typing import Union, Tuple
 
 import networkx as nx
 import numpy as np
@@ -27,9 +28,28 @@ from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
 from ppanggolin.nem.pynem_backend import solve
 
-pan = Pangenome()
-samples = []
-nem_index = None
+logger = logging.getLogger("PPanGGOLiN")
+
+
+@dataclass
+class NemIndex:
+    """
+    NEM's input for a set of genomes, before it is made dense
+
+    :param org_names: genome names, one per column
+    :param fam_names: gene family names, one per row of `presence`
+    :param presence: families x genomes presence matrix
+    :param coverage: edges x genomes gene-pair counts
+    :param edge_src: row of each edge's source family
+    :param edge_tgt: row of each edge's target family
+    """
+
+    org_names: list
+    fam_names: list
+    presence: sp.csr_matrix
+    coverage: sp.csr_matrix
+    edge_src: np.ndarray
+    edge_tgt: np.ndarray
 
 
 def run_partitioning(
@@ -56,7 +76,7 @@ def run_partitioning(
 
     :return: Nem parameters and if not just log likelihood the families associated to partition
     """
-    logging.getLogger("PPanGGOLiN").debug("run_partitioning...")
+    logger.debug("run_partitioning...")
     presence, graph, index_fam, _, _ = nem_input
     return solve(
         presence,
@@ -73,44 +93,41 @@ def run_partitioning(
 
 
 def nem_single(
-    args: Tuple[tuple, int, float, bool, int, str, int, bool]
+    args: Tuple[NemIndex, int, int, float, bool, int, str, int, bool]
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
     Allow to run partitioning in multiprocessing to evaluate partition number
 
-    :param args: {nem_input: tuple, nb_org: int, beta: float, free_dispersion: bool,
+    :param args: {chunk: NemIndex, sm_degree: int, nb_org: int, beta: float, free_dispersion: bool,
                   kval: int, init: str, itermax: int, just_log_likelihood: bool}
     :return: Result of run partitioning
     """
-    return run_partitioning(*args)
+    chunk, sm_degree, *nem_args = args
+    return run_partitioning(build_nem_input(chunk, sm_degree), *nem_args)
 
 
 def partition_nem(
-    index: int,
+    chunk: NemIndex,
     kval: int,
     beta: float = 2.5,
     sm_degree: int = 10,
     free_dispersion: bool = False,
-    seed: int = 42,
     init: str = "param_file",
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
 
-    :param index: Index of the sample group
+    :param chunk: NEM index of the sample group
     :param kval: Number of partitions to use
     :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
     :param sm_degree:  Maximum degree of the nodes to be included in the smoothing process.
     :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
-    :param seed: seed used to generate random numbers
     :param init: Initiate nem parameters with pangenome parameters or randomly
     :return:
     """
-    samp = samples[index]  # org_samples accessible because it is a global variable.
-
-    *_, edges_weight, nb_fam = nem_input = build_nem_input(samp, sm_degree)
+    *_, edges_weight, nb_fam = nem_input = build_nem_input(chunk, sm_degree)
     return run_partitioning(
         nem_input,
-        len(samp),
+        len(chunk.org_names),
         beta * (nb_fam / edges_weight),
         free_dispersion,
         kval=kval,
@@ -122,7 +139,7 @@ def nem_samples(
     pack: tuple,
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """run partitioning
-    :param pack: {index: int, kval: int, beta: float, sm_degree: int, free_dispersion: bool, seed: int, init: str}
+    :param pack: {chunk: NemIndex, kval: int, beta: float, sm_degree: int, free_dispersion: bool, init: str}
 
     :return:
     """
@@ -138,21 +155,19 @@ def ordered_organisms(organisms) -> list:
     return sorted(organisms, key=lambda org: org.name)
 
 
-def build_nem_index():
+def build_nem_index(pangenome: Pangenome) -> NemIndex:
     """
-    Precompute everything about NEM's input that does not depend on the chunk
+    Precompute NEM's input for all the genomes of a pangenome
 
-    :return: the index, also cached in the module-level `nem_index`
+    :param pangenome: Pangenome with gene families and graph
+
+    :return: the index
     """
-    global nem_index
-    organisms = list(pan.organisms)
-    org_index = {org: i for i, org in enumerate(pan.organisms)}
-    families = list(pan.gene_families)
+    organisms = ordered_organisms(pangenome.organisms)
+    org_index = {org: i for i, org in enumerate(organisms)}
+    families = list(pangenome.gene_families)
     fam_index = {fam: i for i, fam in enumerate(families)}
 
-    # Filled into preallocated arrays rather than Python lists: at genus scale
-    # the lists are tens of millions of boxed ints and their peak dwarfs the
-    # matrix they produce (+358 MB against 14 MB of result, on Wolbachia).
     n_pres = sum(fam.number_of_organisms for fam in families)
     rows = np.empty(n_pres, dtype=np.int32)
     cols = np.empty(n_pres, dtype=np.int32)
@@ -168,17 +183,15 @@ def build_nem_index():
     )
     del rows, cols
 
-    # Gene-pair counts per (edge, genome). int32: a genome can carry the same
-    # adjacency many times, and the per-chunk sum must not overflow.
-    n_edges = pan.number_of_edges
-    n_cov = sum(edge.number_of_organisms for edge in pan.edges)
+    n_edges = pangenome.number_of_edges
+    n_cov = sum(edge.number_of_organisms for edge in pangenome.edges)
     src = np.empty(n_edges, dtype=np.int32)
     tgt = np.empty(n_edges, dtype=np.int32)
     e_rows = np.empty(n_cov, dtype=np.int32)
     e_cols = np.empty(n_cov, dtype=np.int32)
     counts = np.empty(n_cov, dtype=np.int32)
     at = 0
-    for e, edge in enumerate(pan.edges):
+    for e, edge in enumerate(pangenome.edges):
         src[e] = fam_index[edge.source]
         tgt[e] = fam_index[edge.target]
         for org, gene_pairs in edge.get_organisms_dict().items():
@@ -191,55 +204,64 @@ def build_nem_index():
     )
     del e_rows, e_cols, counts
 
-    nem_index = {
-        "org_index": org_index,
-        "fam_names": [fam.name for fam in families],
-        "presence": presence,
-        "coverage": coverage,
-        "edge_src": src,
-        "edge_tgt": tgt,
-        "pangenome": pan,
-    }
-    return nem_index
+    return NemIndex(
+        org_names=[org.name for org in organisms],
+        fam_names=[fam.name for fam in families],
+        presence=presence,
+        coverage=coverage,
+        edge_src=src,
+        edge_tgt=tgt,
+    )
 
 
-def build_nem_input(organisms: set, sm_degree: int = 10) -> tuple:
+def subset_nem_index(index: NemIndex, organisms) -> NemIndex:
     """
-    Slice NEM's inputs out of the precomputed index.
+    Restrict an index to some of its genomes
 
-    :param organisms: genomes in this chunk
+    :param index: index to slice
+    :param organisms: names of the genomes to keep
+
+    :return: the index of these genomes, without the families and edges they do not have
+    """
+    column = {name: i for i, name in enumerate(index.org_names)}
+    cols = np.sort(
+        np.fromiter(
+            (column[name] for name in organisms), dtype=np.int32, count=len(organisms)
+        )
+    )
+
+    presence = index.presence[:, cols]
+    rows_kept = np.flatnonzero(np.diff(presence.indptr))
+    local_row = np.full(presence.shape[0], -1, dtype=np.int32)
+    local_row[rows_kept] = np.arange(rows_kept.size, dtype=np.int32)
+
+    coverage = index.coverage[:, cols]
+    live = np.flatnonzero(np.diff(coverage.indptr))
+
+    return NemIndex(
+        org_names=[index.org_names[c] for c in cols],
+        fam_names=[index.fam_names[r] for r in rows_kept],
+        presence=presence[rows_kept],
+        coverage=coverage[live],
+        edge_src=local_row[index.edge_src[live]],
+        edge_tgt=local_row[index.edge_tgt[live]],
+    )
+
+
+def build_nem_input(index: NemIndex, sm_degree: int = 10) -> tuple:
+    """
+    Build NEM's inputs for all the genomes of an index
+
+    :param index: index of the genomes to partition
     :param sm_degree: maximum degree of a node included in the smoothing
 
     :return: (presence, graph, index_fam, edges_weight, nb_fam)
     """
-    idx = (
-        nem_index
-        if nem_index is not None and nem_index["pangenome"] is pan
-        else build_nem_index()
-    )
+    nb_fam, nb_org = index.presence.shape
+    presence = index.presence.toarray().astype(np.float64)
 
-    cols = np.sort(
-        np.fromiter(
-            (idx["org_index"][org] for org in organisms),
-            dtype=np.int32,
-            count=len(organisms),
-        )
-    )
-
-    sub_presence = idx["presence"][:, cols]
-    rows_kept = np.flatnonzero(np.diff(sub_presence.indptr))
-    nb_fam = rows_kept.size
-    presence = sub_presence[rows_kept].toarray().astype(np.float64)
-    index_fam = [idx["fam_names"][r] for r in rows_kept]
-
-    local_row = np.full(sub_presence.shape[0], -1, dtype=np.int32)
-    local_row[rows_kept] = np.arange(nb_fam, dtype=np.int32)
-
-    edge_coverage = np.asarray(idx["coverage"][:, cols].sum(axis=1)).ravel()
-    live = edge_coverage > 0
-    src = local_row[idx["edge_src"][live]]
-    tgt = local_row[idx["edge_tgt"][live]]
-    score = edge_coverage[live] / len(organisms)
+    src, tgt = index.edge_src, index.edge_tgt
+    score = np.asarray(index.coverage.sum(axis=1)).ravel() / nb_org
 
     loop = src == tgt
     other = ~loop
@@ -264,11 +286,11 @@ def build_nem_input(organisms: set, sm_degree: int = 10) -> tuple:
         )
     )
 
-    return presence, graph, index_fam, total_edges_weight / 2, nb_fam
+    return presence, graph, index.fam_names, total_edges_weight / 2, nb_fam
 
 
 def evaluate_nb_partitions(
-    organisms: set,
+    index: NemIndex,
     output: Path = None,
     sm_degree: int = 10,
     free_dispersion: bool = False,
@@ -283,7 +305,7 @@ def evaluate_nb_partitions(
     """
     Evaluate the optimal number of partition for the pangenome
 
-    :param organisms: Set of organisms from pangenome
+    :param index: NEM index of the genomes to evaluate K on
     :param output: output directory path to draw ICL
     :param sm_degree: Maximum degree of the nodes to be included in the smoothing process.
     :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
@@ -299,45 +321,38 @@ def evaluate_nb_partitions(
     """
 
     random.seed(seed)  # Seeded before forking
-    if len(organisms) > chunk_size:
-        select_organisms = set(random.sample(ordered_organisms(organisms), chunk_size))
-    else:
-        select_organisms = set(organisms)
+    select_organisms = index.org_names
+    if len(select_organisms) > chunk_size:
+        select_organisms = random.sample(select_organisms, chunk_size)
+        index = subset_nem_index(index, select_organisms)
 
-    *_, nb_fam = nem_input = build_nem_input(select_organisms, sm_degree)
+    nb_fam = len(index.fam_names)
     max_icl_k = 0
-    args_partitionning = []
-    for k in range(krange[0] - 1, krange[1] + 1):
-        args_partitionning.append(
-            (
-                nem_input,
-                len(select_organisms),
-                0,
-                free_dispersion,
-                k,
-                "param_file",
-                10,
-                True,
-            )
-        )  # follow order run_partitionning args
+    nem_args = [
+        (len(select_organisms), 0, free_dispersion, k, "param_file", 10, True)
+        for k in range(krange[0] - 1, krange[1] + 1)
+    ]
     all_log_likelihood = []
 
     if cpu > 1:
         bar = tqdm(
-            range(len(args_partitionning)),
+            range(len(nem_args)),
             unit="Number of partitions",
             disable=disable_bar,
         )
         with get_context("fork").Pool(processes=cpu) as p:
-            for result in p.imap_unordered(nem_single, args_partitionning):
+            for result in p.imap_unordered(
+                nem_single, ((index, sm_degree, *arguments) for arguments in nem_args)
+            ):
                 all_log_likelihood.append(result)
                 bar.update()
             p.close()
             p.join()
         bar.close()
     else:  # for the case where it is called in a daemonic subprocess with a single cpu
-        for arguments in args_partitionning:
-            all_log_likelihood.append(nem_single(arguments))
+        nem_input = build_nem_input(index, sm_degree)
+        for arguments in nem_args:
+            all_log_likelihood.append(run_partitioning(nem_input, *arguments))
 
     all_bics = defaultdict(float)
     all_icls = defaultdict(float)
@@ -511,10 +526,6 @@ def partition(
     :param disable_bar: Disable progress bar
     """
     kmm = [3, 20] if krange is None else krange
-    global samples
-    global pan
-
-    pan = pangenome
     if draw_icl and output is None:
         raise Exception(
             "Combination of option impossible: "
@@ -528,11 +539,11 @@ def partition(
         need_graph=True,
         disable_bar=disable_bar,
     )
-    organisms = set(pangenome.organisms)
-    build_nem_index()
+    index = build_nem_index(pangenome)
+    organisms = index.org_names
 
     if len(organisms) <= 10:
-        logging.getLogger("PPanGGOLiN").warning(
+        logger.warning(
             f"The number of selected genomes is too low ({len(organisms)} "
             f"genomes used) to robustly partition the graph"
         )
@@ -551,11 +562,9 @@ def partition(
     pangenome.parameters["partition"]["nb_of_partitions"] = kval
     if kval < 2:
         pangenome.parameters["partition"]["# computed nb of partitions"] = True
-        logging.getLogger("PPanGGOLiN").info(
-            "Estimating the optimal number of partitions..."
-        )
+        logger.info("Estimating the optimal number of partitions...")
         kval = evaluate_nb_partitions(
-            organisms,
+            index,
             output,
             sm_degree,
             free_dispersion,
@@ -567,9 +576,7 @@ def partition(
             seed,
             disable_bar,
         )
-        logging.getLogger("PPanGGOLiN").info(
-            f"The number of partitions has been evaluated at {kval}"
-        )
+        logger.info(f"The number of partitions has been evaluated at {kval}")
 
     pangenome.parameters["partition"]["# final nb of partitions"] = kval
     pangenome.parameters["partition"]["krange"] = kmm
@@ -578,7 +585,6 @@ def partition(
     partitioning_results = {}
 
     families = set()
-    cpt = 0
     cpt_partition = {}
     random.seed(seed)
 
@@ -588,7 +594,7 @@ def partition(
             cpt_partition[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
 
     start_partitioning = time.time()
-    logging.getLogger("PPanGGOLiN").info("Partitioning...")
+    logger.info("Partitioning...")
     pansize = len(families)
     if chunk_size < len(organisms):
         validated = set()
@@ -613,6 +619,7 @@ def partition(
                             # an abosolute majority is not found then the families is set to undefined
                         validated.add(node)
 
+        samples = []
         org_nb_sample = Counter()
         for org in organisms:
             org_nb_sample[org] = 0
@@ -621,22 +628,33 @@ def partition(
             prev = len(samples)  # if we've been sampling already, samples is not empty.
             while not all(val >= condition for val in org_nb_sample.values()):
                 # each family must be tested at least len(select_organisms)/chunk_size times.
-                shuffled_orgs = ordered_organisms(organisms)
+                shuffled_orgs = list(organisms)
                 random.shuffle(shuffled_orgs)  # seeded shuffle
                 while len(shuffled_orgs) > chunk_size:
-                    samples.append(set(shuffled_orgs[:chunk_size]))
+                    samples.append(shuffled_orgs[:chunk_size])
                     for org in samples[-1]:
                         org_nb_sample[org] += 1
                     shuffled_orgs = shuffled_orgs[chunk_size:]
-            args = []
-            for i, _ in enumerate(samples[prev:], start=prev):
-                args.append((i, kval, beta, sm_degree, free_dispersion, seed, init))
+            # sliced as the pool asks for them, so one chunk is in transit at a time
+            args = (
+                (
+                    subset_nem_index(index, samp),
+                    kval,
+                    beta,
+                    sm_degree,
+                    free_dispersion,
+                    init,
+                )
+                for samp in samples[prev:]
+            )
 
-            logging.getLogger("PPanGGOLiN").info("Launching NEM")
+            logger.info("Launching NEM")
             with get_context("fork").Pool(processes=cpu) as p:
                 # launch partitioning
                 bar = tqdm(
-                    range(len(args)), unit=" samples partitioned", disable=disable_bar
+                    range(len(samples) - prev),
+                    unit=" samples partitioned",
+                    disable=disable_bar,
                 )
                 for result in p.imap_unordered(nem_samples, args):
                     validate_family(result)
@@ -646,7 +664,7 @@ def partition(
                 condition += (
                     1  # if len(validated) < pan_size, we will want to resample more.
                 )
-                logging.getLogger("PPanGGOLiN").debug(
+                logger.debug(
                     f"There are {len(validated)} validated families out of {pansize} families."
                 )
                 p.close()
@@ -657,12 +675,12 @@ def partition(
         # need to compute the median vectors of each partition ???
         partitioning_results = [partitioning_results, []]  # introduces a 'non feature'.
 
-        logging.getLogger("PPanGGOLiN").info(
+        logger.info(
             f"Did {len(samples)} partitioning with chunks of size {chunk_size} among "
             f"{len(organisms)} genomes in {round(time.time() - start_partitioning, 2)} seconds."
         )
     else:
-        *_, edges_weight, nb_fam = nem_input = build_nem_input(organisms, sm_degree)
+        *_, edges_weight, nb_fam = nem_input = build_nem_input(index, sm_degree)
         partitioning_results = run_partitioning(
             nem_input,
             len(organisms),
@@ -676,8 +694,7 @@ def partition(
                 "Statistical partitioning does not work on your data. "
                 "This usually happens because you used very few (<15) genomes."
             )
-        cpt += 1
-        logging.getLogger("PPanGGOLiN").info(
+        logger.info(
             f"Partitioned {len(organisms)} genomes in "
             f"{round(time.time() - start_partitioning, 2)} seconds."
         )
@@ -698,10 +715,10 @@ def launch(args: argparse.Namespace):
     """
     if args.draw_ICL:
         mk_outdir(args.output, args.force)
-    global pan
-    pan.add_file(args.pangenome)
+    pangenome = Pangenome()
+    pangenome.add_file(args.pangenome)
     partition(
-        pan,
+        pangenome,
         args.output,
         args.beta,
         args.max_degree_smoothing,
@@ -716,9 +733,11 @@ def launch(args: argparse.Namespace):
         args.force,
         disable_bar=args.disable_prog_bar,
     )
-    logging.getLogger("PPanGGOLiN").debug("Write partition in pangenome")
-    write_pangenome(pan, pan.file, args.force, disable_bar=args.disable_prog_bar)
-    logging.getLogger("PPanGGOLiN").debug("Partitioning is finished")
+    logger.debug("Write partition in pangenome")
+    write_pangenome(
+        pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar
+    )
+    logger.debug("Partitioning is finished")
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
