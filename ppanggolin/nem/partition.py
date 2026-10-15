@@ -128,13 +128,15 @@ def nem_samples(
     """
     return partition_nem(*pack)
 
- def ordered_organisms(organisms) -> list:
+
+def ordered_organisms(organisms) -> list:
     """
     Genomes in a stable, process-independent order.
     :param organisms: genomes to order
     :return: the genomes sorted by name
     """
     return sorted(organisms, key=lambda org: org.name)
+
 
 def build_nem_index():
     """
