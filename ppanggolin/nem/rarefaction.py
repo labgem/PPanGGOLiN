@@ -28,13 +28,10 @@ from ppanggolin.formats import check_pangenome_info
 from ppanggolin.nem.pynem_backend import set_threads
 import ppanggolin.nem.partition as ppp
 
-# import this way to use the global variable pangenome defined in ppanggolin.nem.partition
-
-samples = []
-
 
 def raref_nem(
     index: int,
+    sample: ppp.NemIndex,
     beta: float = 2.5,
     sm_degree: int = 10,
     free_dispersion: bool = False,
@@ -46,6 +43,7 @@ def raref_nem(
     """
 
     :param index: Index of the sample group organisms
+    :param sample: NEM index of the sample group organisms
     :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
     :param sm_degree:  Maximum degree of the nodes to be included in the smoothing process.
     :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
@@ -56,13 +54,13 @@ def raref_nem(
 
     :return: Count of each partition and parameters for the given sample index
     """
-    samp = samples[index]
+    samp = set(sample.org_names)
 
     kmm = [3, 20] if krange is None else krange
 
     if kval < 3:
         kval = ppp.evaluate_nb_partitions(
-            organisms=samp,
+            index=sample,
             sm_degree=sm_degree,
             free_dispersion=free_dispersion,
             chunk_size=chunk_size,
@@ -71,7 +69,7 @@ def raref_nem(
         )
 
     if len(samp) <= chunk_size:
-        *_, edges_weight, nb_fam = nem_input = ppp.build_nem_input(set(samp), sm_degree)
+        *_, edges_weight, nb_fam = nem_input = ppp.build_nem_input(sample, sm_degree)
         cpt_partition = ppp.run_partitioning(
             nem_input,
             len(samp),
@@ -81,10 +79,10 @@ def raref_nem(
             init="param_file",
         )[0]
     else:  # going to need multiple partitioning for this sample...
-        families = set()
-        cpt_partition = {}
+        cpt_partition = {
+            fam: {"P": 0, "S": 0, "C": 0, "U": 0} for fam in sample.fam_names
+        }
         validated = set()
-        cpt = 0
 
         def validate_family(
             result: Union[
@@ -110,24 +108,17 @@ def raref_nem(
                             cpt_partition[node]["U"] = len(samp)
                         validated.add(node)
 
-        for fam in ppp.pan.gene_families:
-            if not samp.isdisjoint(
-                set(fam.organisms)
-            ):  # otherwise, useless to keep track of
-                families.add(fam)
-                cpt_partition[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
-
         org_nb_sample = Counter()
         for org in samp:
             org_nb_sample[org] = 0
         condition = len(samp) / chunk_size
 
-        while len(validated) < len(families):
+        while len(validated) < len(cpt_partition):
             org_samples = []
 
             while not all(val >= condition for val in org_nb_sample.values()):
                 # each family must be tested at least len(select_organisms)/chunk_size times.
-                shuffled_orgs = ppp.ordered_organisms(samp)
+                shuffled_orgs = sorted(samp)
                 random.shuffle(shuffled_orgs)  # seeded shuffle
                 while len(shuffled_orgs) > chunk_size:
                     org_samples.append(set(shuffled_orgs[:chunk_size]))
@@ -137,7 +128,7 @@ def raref_nem(
             # making arguments for all samples:
             for samp in org_samples:
                 *_, edges_weight, nb_fam = nem_input = ppp.build_nem_input(
-                    samp, sm_degree
+                    ppp.subset_nem_index(sample, samp), sm_degree
                 )
                 validate_family(
                     ppp.run_partitioning(
@@ -149,7 +140,6 @@ def raref_nem(
                         init="param_file",
                     )
                 )
-                cpt += 1
     if len(cpt_partition) == 0:
         counts = {
             "persistent": "NA",
@@ -178,12 +168,12 @@ def raref_nem(
 
 
 def launch_raref_nem(
-    args: Tuple[int, float, int, bool, int, int, list, int]
+    args: Tuple[int, ppp.NemIndex, float, int, bool, int, int, list, int]
 ) -> Tuple[Tuple[Dict[str, int], int]]:
     """
     Launch raref_nem in multiprocessing
 
-    :param args: {index: int, beta: float, sm_degree: int, free_dispersion: bool,
+    :param args: {index: int, sample: NemIndex, beta: float, sm_degree: int, free_dispersion: bool,
                   chunk_size: int, kval: int, krange: list, seed: int}
     :return: Count of each partition and parameters for the given sample index
     """
@@ -563,16 +553,14 @@ def make_rarefaction_curve(
     """
     if krange is None:
         krange = [3, -1]
-    ppp.pan = pangenome  # use the global from partition to store the pangenome, so that it is usable
-
     try:
         krange[0] = (
-            ppp.pan.parameters["partition"]["# final nb of partitions"]
+            pangenome.parameters["partition"]["# final nb of partitions"]
             if krange[0] < 0
             else krange[0]
         )
         krange[1] = (
-            ppp.pan.parameters["partition"]["# final nb of partitions"]
+            pangenome.parameters["partition"]["# final nb of partitions"]
             if krange[1] < 0
             else krange[1]
         )
@@ -585,6 +573,7 @@ def make_rarefaction_curve(
         need_graph=True,
         disable_bar=disable_bar,
     )
+    nem_index = ppp.build_nem_index(pangenome)
 
     if float(pangenome.number_of_organisms) < max_sampling:
         max_sampling = pangenome.number_of_organisms
@@ -593,7 +582,7 @@ def make_rarefaction_curve(
 
     if kval < 3 and kestimate is False:  # estimate K once and for all.
         try:
-            kval = ppp.pan.parameters["partition"]["# final nb of partitions"]
+            kval = pangenome.parameters["partition"]["# final nb of partitions"]
             logging.getLogger("PPanGGOLiN").info(
                 f"Reuse the number of partitions {kval}"
             )
@@ -602,7 +591,7 @@ def make_rarefaction_curve(
                 "Estimating the number of partitions..."
             )
             kval = ppp.evaluate_nb_partitions(
-                organisms=set(pangenome.organisms),
+                index=nem_index,
                 sm_degree=sm_degree,
                 free_dispersion=free_dispersion,
                 chunk_size=chunk_size,
@@ -666,16 +655,24 @@ def make_rarefaction_curve(
     bar.close()
     # done with frequency of each family for each sample.
 
-    ppp.build_nem_index()
-
-    global samples
-    samples = all_samples
-
-    args = []
-    for index, samp in enumerate(samples):
-        args.append(
+    with get_context("fork").Pool(
+        processes=cpu, initializer=set_threads, initargs=(1,)
+    ) as p:
+        # launch partitioning
+        logging.getLogger("PPanGGOLiN").info(" Partitioning all samples...")
+        bar = tqdm(
+            range(len(all_samples)), unit="samples partitioned", disable=disable_bar
+        )
+        order = list(range(len(all_samples)))
+        random.shuffle(
+            order
+        )  # shuffling the processing so that the progress bar is closer to reality.
+        args = (
             (
                 index,
+                ppp.subset_nem_index(
+                    nem_index, [org.name for org in all_samples[index]]
+                ),
                 beta,
                 sm_degree,
                 free_dispersion,
@@ -684,17 +681,8 @@ def make_rarefaction_curve(
                 krange,
                 seed,
             )
+            for index in order
         )
-
-    with get_context("fork").Pool(
-        processes=cpu, initializer=set_threads, initargs=(1,)
-    ) as p:
-        # launch partitioning
-        logging.getLogger("PPanGGOLiN").info(" Partitioning all samples...")
-        bar = tqdm(range(len(args)), unit="samples partitioned", disable=disable_bar)
-        random.shuffle(
-            args
-        )  # shuffling the processing so that the progress bar is closer to reality.
         for result in p.imap_unordered(launch_raref_nem, args):
             samp_nb_per_part[result[1]] = {**result[0], **samp_nb_per_part[result[1]]}
             bar.update()
