@@ -128,6 +128,13 @@ def nem_samples(
     """
     return partition_nem(*pack)
 
+ def ordered_organisms(organisms) -> list:
+    """
+    Genomes in a stable, process-independent order.
+    :param organisms: genomes to order
+    :return: the genomes sorted by name
+    """
+    return sorted(organisms, key=lambda org: org.name)
 
 def build_nem_index():
     """
@@ -289,8 +296,9 @@ def evaluate_nb_partitions(
     :return: Ideal number of partition computed
     """
 
+    random.seed(seed)  # Seeded before forking
     if len(organisms) > chunk_size:
-        select_organisms = set(random.sample(list(organisms), chunk_size))
+        select_organisms = set(random.sample(ordered_organisms(organisms), chunk_size))
     else:
         select_organisms = set(organisms)
 
@@ -349,7 +357,7 @@ def evaluate_nb_partitions(
     best_k = chosen_k
 
     if len(all_bics) > 3:
-        max_icl_k = max(all_icls, key=all_icls.get)
+        max_icl_k = max(sorted(all_icls), key=all_icls.get)
         delta_icl = (all_icls[max_icl_k] - min(all_icls.values())) * icl_margin
         best_k = min(
             {
@@ -611,8 +619,8 @@ def partition(
             prev = len(samples)  # if we've been sampling already, samples is not empty.
             while not all(val >= condition for val in org_nb_sample.values()):
                 # each family must be tested at least len(select_organisms)/chunk_size times.
-                shuffled_orgs = list(organisms)  # copy select_organisms
-                random.shuffle(shuffled_orgs)  # shuffle the copied list
+                shuffled_orgs = ordered_organisms(organisms)
+                random.shuffle(shuffled_orgs)  # seeded shuffle
                 while len(shuffled_orgs) > chunk_size:
                     samples.append(set(shuffled_orgs[:chunk_size]))
                     for org in samples[-1]:
