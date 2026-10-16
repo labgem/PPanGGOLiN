@@ -26,7 +26,7 @@ from ppanggolin.annotate.annotate import (
 from ppanggolin.cluster.cluster import clustering, read_clustering
 from ppanggolin.graph.makeGraph import compute_neighbors_graph
 from ppanggolin.nem.rarefaction import make_rarefaction_curve
-from ppanggolin.nem.partition import partition
+from ppanggolin.nem.partition import PartitionOptions, partition
 from ppanggolin.formats.writeBinaries import write_pangenome
 from ppanggolin.formats.writeFlatPangenome import write_pangenome_flat_files
 from ppanggolin.formats.writeFlatGenomes import write_flat_genome_files
@@ -198,19 +198,21 @@ def launch_workflow(
     start_part = time.time()
     partition(
         pangenome,
-        output=args.output,
-        beta=args.partition.beta,
-        max_degree_smoothing=args.partition.max_degree_smoothing,
-        free_dispersion=args.partition.free_dispersion,
-        chunk_size=args.partition.chunk_size,
-        k=args.partition.nb_of_partitions,
-        krange=args.partition.krange,
-        icl_margin=args.partition.ICL_margin,
-        draw_icl=args.partition.draw_ICL,
-        seed=args.partition.seed,
-        cpu=args.partition.cpu,
-        force=args.force,
-        disable_bar=args.disable_prog_bar,
+        PartitionOptions(
+            output=args.output,
+            beta=args.partition.beta,
+            max_degree_smoothing=args.partition.max_degree_smoothing,
+            free_dispersion=args.partition.free_dispersion,
+            chunk_size=args.partition.chunk_size,
+            k=args.partition.nb_of_partitions,
+            krange=args.partition.krange,
+            icl_margin=args.partition.ICL_margin,
+            draw_icl=args.partition.draw_ICL,
+            seed=args.partition.seed,
+            cpu=args.partition.cpu,
+            force=args.force,
+            disable_bar=args.disable_prog_bar,
+        ),
     )
     part_time = time.time() - start_part
 
