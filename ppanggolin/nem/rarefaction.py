@@ -33,7 +33,9 @@ from ppanggolin.nem.nem_input import (
 from ppanggolin.nem.partition import (
     ChunkVotes,
     draw_chunks,
+    keep_index,
     evaluate_nb_partitions,
+    inherited_index,
     partition_chunk,
 )
 from ppanggolin.pangenome import Pangenome
@@ -188,10 +190,17 @@ def partition_sample(
 
 
 def _partition_sample_worker(
-    args: tuple[int, NemIndex, int, RarefactionOptions],
+    args: tuple[int, list[str], int, RarefactionOptions],
 ) -> tuple[dict[str, int | str], int]:
-    """Run `partition_sample` in a pool."""
-    return partition_sample(*args)
+    """Partition one sample of the index the pool inherited.
+
+    :param args: (position of the sample, its genomes, k, options).
+    :return: Number of families in each partition, and the sample's position.
+    """
+    sample_id, genomes, k, options = args
+    return partition_sample(
+        sample_id, subset_nem_index(inherited_index(), genomes), k, options
+    )
 
 
 def write_rarefaction_table(output: Path, rows: list[dict]) -> Path:
@@ -588,7 +597,9 @@ def _partition_samples(
     :param rng: Random generator, used to shuffle the processing order.
     :param rows: Family counts of each sample, updated in place.
     """
-    with get_context("fork").Pool(processes=options.cpu) as pool:
+    with get_context("fork").Pool(
+        options.cpu, initializer=keep_index, initargs=(nem_index,)
+    ) as pool:
         logger.info(" Partitioning all samples...")
         with tqdm(
             total=len(samples), unit="samples partitioned", disable=options.disable_bar
@@ -599,9 +610,7 @@ def _partition_samples(
             args = (
                 (
                     sample_id,
-                    subset_nem_index(
-                        nem_index, [org.name for org in samples[sample_id]]
-                    ),
+                    [org.name for org in samples[sample_id]],
                     k,
                     options,
                 )
