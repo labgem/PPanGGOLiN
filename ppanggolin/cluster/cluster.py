@@ -38,6 +38,7 @@ from ppanggolin.formats.writeSequences import (
     translate_genes,
     create_mmseqs_db,
 )
+from ppanggolin.errors import AlreadyComputedError
 
 
 # Global functions
@@ -49,7 +50,7 @@ def check_pangenome_former_clustering(pangenome: Pangenome, force: bool = False)
     :param force: Force to write on existing pangenome information
     """
     if pangenome.status["genesClustered"] == "inFile" and not force:
-        raise Exception(
+        raise AlreadyComputedError(
             "You are trying to cluster genes that are already clustered together. If you REALLY want to "
             "do that, use --force (it will erase everything except annotation data in your HDF5 file!)"
         )

@@ -27,6 +27,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
 from ppanggolin.nem.pynem_backend import solve
+from ppanggolin.errors import AlreadyComputedError, PartitioningError
 
 logger = logging.getLogger("PPanGGOLiN")
 
@@ -458,7 +459,7 @@ def check_pangenome_former_partition(pangenome: Pangenome, force: bool = False):
     :param force: Allow to force write on Pangenome file
     """
     if pangenome.status["partitioned"] == "inFile" and not force:
-        raise Exception(
+        raise AlreadyComputedError(
             "You are trying to partition a pangenome already partitioned."
             " If you REALLY want to do that, "
             "use --force (it will erase partitions and every feature computed from them."
@@ -503,7 +504,7 @@ def partition(
     """
     kmm = [3, 20] if krange is None else krange
     if draw_icl and output is None:
-        raise Exception(
+        raise ValueError(
             "Combination of option impossible: "
             "You asked to draw the ICL curves but did not provide an output directory!"
         )
@@ -662,8 +663,8 @@ def partition(
             free_dispersion,
             kval=kval,
         )
-        if partitioning_results == [{}, None, None]:
-            raise Exception(
+        if not partitioning_results[0]:
+            raise PartitioningError(
                 "Statistical partitioning does not work on your data. "
                 "This usually happens because you used very few (<15) genomes."
             )
