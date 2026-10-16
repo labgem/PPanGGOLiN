@@ -25,6 +25,7 @@ from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pang
 from ppanggolin.nem.model import set_threads, solve
 from ppanggolin.nem.nem_input import (
     NemIndex,
+    NemInput,
     build_nem_index,
     build_nem_input,
     subset_nem_index,
@@ -35,7 +36,7 @@ logger = logging.getLogger("PPanGGOLiN")
 
 
 def run_partitioning(
-    nem_input: tuple,
+    nem_input: NemInput,
     nb_genomes: int,
     beta: float = 2.5,
     free_dispersion: bool = False,
@@ -46,7 +47,7 @@ def run_partitioning(
     """
     Run NEM on inputs built by `build_nem_input`
 
-    :param nem_input: (presence, graph, fam_names, edges_weight, nb_families)
+    :param nem_input: NEM input
     :param nb_genomes: Number of organisms
     :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
     :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
@@ -57,11 +58,10 @@ def run_partitioning(
     :return: Nem parameters and if not just log likelihood the families associated to partition
     """
     logger.debug("run_partitioning...")
-    presence, graph, fam_names, _, _ = nem_input
     return solve(
-        presence,
-        graph,
-        fam_names,
+        nem_input.presence,
+        nem_input.graph,
+        nem_input.fam_names,
         nb_genomes,
         beta=beta,
         free_dispersion=free_dispersion,
@@ -101,13 +101,11 @@ def partition_chunk(
     :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
     :return:
     """
-    *_, edges_weight, nb_families = nem_input = build_nem_input(
-        chunk, max_degree_smoothing
-    )
+    nem_input = build_nem_input(chunk, max_degree_smoothing)
     return run_partitioning(
         nem_input,
         len(chunk.org_names),
-        beta * (nb_families / edges_weight),
+        nem_input.scaled_beta(beta),
         free_dispersion,
         k=k,
     )
@@ -498,13 +496,11 @@ def partition(
             f"{len(genomes)} genomes in {round(time.time() - start_partitioning, 2)} seconds."
         )
     else:
-        *_, edges_weight, nb_families = nem_input = build_nem_input(
-            index, max_degree_smoothing
-        )
+        nem_input = build_nem_input(index, max_degree_smoothing)
         partitioning_results = run_partitioning(
             nem_input,
             len(genomes),
-            beta * (nb_families / edges_weight),
+            nem_input.scaled_beta(beta),
             free_dispersion,
             k=k,
         )

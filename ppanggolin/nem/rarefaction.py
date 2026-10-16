@@ -75,13 +75,11 @@ def partition_sample(
         )
 
     if len(genomes) <= chunk_size:
-        *_, edges_weight, nb_families = nem_input = build_nem_input(
-            sample, max_degree_smoothing
-        )
+        nem_input = build_nem_input(sample, max_degree_smoothing)
         votes = run_partitioning(
             nem_input,
             len(genomes),
-            beta * (nb_families / edges_weight),
+            nem_input.scaled_beta(beta),
             free_dispersion,
             k=k,
         )[0]
@@ -132,14 +130,14 @@ def partition_sample(
                         times_drawn[org] += 1
                     shuffled = shuffled[chunk_size:]
             for chunk in chunks:
-                *_, edges_weight, nb_families = nem_input = build_nem_input(
+                nem_input = build_nem_input(
                     subset_nem_index(sample, chunk), max_degree_smoothing
                 )
                 count_votes(
                     run_partitioning(
                         nem_input,
                         len(chunk),
-                        beta * (nb_families / edges_weight),
+                        nem_input.scaled_beta(beta),
                         free_dispersion,
                         k=k,
                     )
