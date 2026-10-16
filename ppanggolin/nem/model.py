@@ -67,11 +67,7 @@ def _initial_parameters(k, nb_genomes):
 
 
 def _fit(
-    nem_input: NemInput,
-    beta: float,
-    free_dispersion: bool,
-    k: int,
-    max_iter: int
+    nem_input: NemInput, beta: float, free_dispersion: bool, k: int, max_iter: int
 ) -> NEM:
     """Fit NEM on an input.
 
@@ -101,6 +97,48 @@ def _fit(
     return model
 
 
+def _class_parameters(model: NEM, k: int) -> dict:
+    """Name the parameters of each class after its partition.
+
+    :param model: Fitted model.
+    :param k: Number of partitions.
+    :return: Centers, dispersions and proportion of persistent, shell_<c> and cloud.
+    """
+    parameters = {}
+    for c in range(k):
+        mu = [bool(round(float(mu_j))) for mu_j in model.centers_[c]]
+        epsilon = [float(epsilon_j) for epsilon_j in model.dispersions_[c]]
+        proportion = float(model.proportions_[c])
+        if c == 0:
+            parameters["persistent"] = (mu, epsilon, proportion)
+        elif c == k - 1:
+            parameters["cloud"] = (mu, epsilon, proportion)
+        else:
+            parameters["shell_" + str(c)] = (mu, epsilon, proportion)
+    return parameters
+
+
+def _label_families(membership: np.ndarray, k: int) -> list[str]:
+    """Label each family with its most probable class, or S_ when in doubt.
+
+    :param membership: Families x classes probabilities.
+    :param k: Number of partitions.
+    :return: One label per family.
+    """
+    labels = {0: "P", k - 1: "C"}
+    for c in range(1, k - 1):
+        labels[c] = "S" + str(c)
+    family_labels = []
+    for row in membership:
+        max_prob = float(row.max())
+        best = [c for c, prob in enumerate(row) if prob == max_prob]
+        if len(best) > 1 or max_prob < 0.5:
+            family_labels.append("S_")
+        else:
+            family_labels.append(labels[best[0]])
+    return family_labels
+
+
 def solve(
     nem_input: NemInput,
     beta: float = 2.5,
@@ -118,34 +156,11 @@ def solve(
     :return: The partitions and the fitted parameters.
     """
     model = _fit(nem_input, beta, free_dispersion, k, max_iter)
-
-    all_parameters = {}
-    for c in range(k):
-        mu = [bool(round(float(mu_j))) for mu_j in model.centers_[c]]
-        epsilon = [float(epsilon_j) for epsilon_j in model.dispersions_[c]]
-        proportion = float(model.proportions_[c])
-        if c == 0:
-            all_parameters["persistent"] = (mu, epsilon, proportion)
-        elif c == k - 1:
-            all_parameters["cloud"] = (mu, epsilon, proportion)
-        else:
-            all_parameters["shell_" + str(c)] = (mu, epsilon, proportion)
-
-    labels = {0: "P", k - 1: "C"}
-    for i in range(1, k - 1):
-        labels[i] = "S" + str(i)
-    family_labels = []
-    for row in model.membership_:
-        max_prob = float(row.max())
-        best = [c for c, prob in enumerate(row) if prob == max_prob]
-        if len(best) > 1 or max_prob < 0.5:
-            family_labels.append("S_")  # shell in case of doubt
-        else:
-            family_labels.append(labels[best[0]])
-
     return NemResult(
-        partitions=dict(zip(nem_input.fam_names, family_labels)),
-        parameters=all_parameters,
+        partitions=dict(
+            zip(nem_input.fam_names, _label_families(model.membership_, k))
+        ),
+        parameters=_class_parameters(model, k),
         log_likelihood=float(model.criteria_["M"]),
     )
 
