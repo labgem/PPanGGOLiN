@@ -10,7 +10,7 @@ from multiprocessing import get_context
 import os
 import warnings
 from pathlib import Path
-from typing import Union, Tuple, Dict
+from typing import Tuple, Dict
 
 # installed libraries
 from tqdm import tqdm
@@ -25,8 +25,9 @@ import scipy.optimize as optimization
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info
+from ppanggolin.nem.model import NemResult, solve
 from ppanggolin.nem.model import set_threads
-from ppanggolin.nem.partition import evaluate_nb_partitions, run_partitioning
+from ppanggolin.nem.partition import evaluate_nb_partitions
 from ppanggolin.nem.nem_input import (
     NemIndex,
     build_nem_index,
@@ -76,30 +77,22 @@ def partition_sample(
 
     if len(genomes) <= chunk_size:
         nem_input = build_nem_input(sample, max_degree_smoothing)
-        votes = run_partitioning(
-            nem_input,
-            len(genomes),
-            nem_input.scaled_beta(beta),
-            free_dispersion,
-            k=k,
-        )[0]
+        votes = solve(
+            nem_input, nem_input.scaled_beta(beta), free_dispersion, k
+        ).partitions
     else:  # going to need multiple partitioning for this sample...
         votes = {fam: {"P": 0, "S": 0, "C": 0, "U": 0} for fam in sample.fam_names}
         validated = set()
 
         def count_votes(
-            result: Union[
-                Tuple[dict, None, None],
-                Tuple[int, float, float],
-                Tuple[dict, dict, float],
-            ]
+            result: NemResult,
         ):
             """
             Validate partition assignation to families
 
             :param result: Partitioning results
             """
-            for family, label in result[0].items():
+            for family, label in result.partitions.items():
                 votes[family][label[0]] += 1
                 nb_votes = sum(votes[family].values())
                 if (
@@ -134,13 +127,7 @@ def partition_sample(
                     subset_nem_index(sample, chunk), max_degree_smoothing
                 )
                 count_votes(
-                    run_partitioning(
-                        nem_input,
-                        len(chunk),
-                        nem_input.scaled_beta(beta),
-                        free_dispersion,
-                        k=k,
-                    )
+                    solve(nem_input, nem_input.scaled_beta(beta), free_dispersion, k)
                 )
             min_draws += 1  # if families are left to validate, draw more chunks
     if len(votes) == 0:

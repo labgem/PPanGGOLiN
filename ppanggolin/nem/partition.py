@@ -12,7 +12,7 @@ import math
 from pathlib import Path
 
 # installed libraries
-from typing import Union, Tuple
+from typing import Tuple
 
 from tqdm import tqdm
 import plotly.offline as out_plotly
@@ -22,67 +22,27 @@ import plotly.graph_objs as go
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
-from ppanggolin.nem.model import set_threads, solve
+from ppanggolin.nem.model import KScore, NemResult, score, set_threads, solve
 from ppanggolin.nem.nem_input import (
     NemIndex,
-    NemInput,
     build_nem_index,
     build_nem_input,
     subset_nem_index,
 )
-from ppanggolin.errors import AlreadyComputedError, PartitioningError
 
 logger = logging.getLogger("PPanGGOLiN")
 
 
-def run_partitioning(
-    nem_input: NemInput,
-    nb_genomes: int,
-    beta: float = 2.5,
-    free_dispersion: bool = False,
-    k: int = 3,
-    max_iter: int = 100,
-    scores_only: bool = False,
-) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
+def _score_k_worker(args: Tuple[NemIndex, int, float, bool, int, int]) -> KScore:
     """
-    Run NEM on inputs built by `build_nem_input`
+    Allow to score a number of partitions in multiprocessing
 
-    :param nem_input: NEM input
-    :param nb_genomes: Number of organisms
-    :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
-    :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
-    :param k: Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.
-    :param max_iter: Maximum iteration to compute partitioning
-    :param scores_only: Return only nem parameter result
-
-    :return: Nem parameters and if not just log likelihood the families associated to partition
+    :param args: {chunk: NemIndex, max_degree_smoothing: int, beta: float, free_dispersion: bool,
+                  k: int, max_iter: int}
+    :return: Score of k
     """
-    logger.debug("run_partitioning...")
-    return solve(
-        nem_input.presence,
-        nem_input.graph,
-        nem_input.fam_names,
-        nb_genomes,
-        beta=beta,
-        free_dispersion=free_dispersion,
-        k=k,
-        max_iter=max_iter,
-        scores_only=scores_only,
-    )
-
-
-def _score_k_worker(
-    args: Tuple[NemIndex, int, int, float, bool, int, int, bool]
-) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
-    """
-    Allow to run partitioning in multiprocessing to evaluate partition number
-
-    :param args: {chunk: NemIndex, max_degree_smoothing: int, nb_genomes: int, beta: float, free_dispersion: bool,
-                  k: int, max_iter: int, scores_only: bool}
-    :return: Result of run partitioning
-    """
-    chunk, max_degree_smoothing, *nem_args = args
-    return run_partitioning(build_nem_input(chunk, max_degree_smoothing), *nem_args)
+    chunk, max_degree_smoothing, *score_args = args
+    return score(build_nem_input(chunk, max_degree_smoothing), *score_args)
 
 
 def partition_chunk(
@@ -91,7 +51,7 @@ def partition_chunk(
     beta: float = 2.5,
     max_degree_smoothing: int = 10,
     free_dispersion: bool = False,
-) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
+) -> NemResult:
     """
 
     :param chunk: NEM index of the sample group
@@ -102,18 +62,10 @@ def partition_chunk(
     :return:
     """
     nem_input = build_nem_input(chunk, max_degree_smoothing)
-    return run_partitioning(
-        nem_input,
-        len(chunk.org_names),
-        nem_input.scaled_beta(beta),
-        free_dispersion,
-        k=k,
-    )
+    return solve(nem_input, nem_input.scaled_beta(beta), free_dispersion, k)
 
 
-def _partition_chunk_worker(
-    pack: tuple,
-) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
+def _partition_chunk_worker(pack: tuple) -> NemResult:
     """run partitioning
     :param pack: {chunk: NemIndex, k: int, beta: float, max_degree_smoothing: int, free_dispersion: bool}
 
@@ -161,11 +113,8 @@ def evaluate_nb_partitions(
 
     nb_families = len(index.fam_names)
     max_icl_k = 0
-    # follow order run_partitionning args
-    k_args = [
-        (len(genomes), 0, free_dispersion, k, 10, True)
-        for k in range(krange[0] - 1, krange[1] + 1)
-    ]
+    # follow order of score args
+    k_args = [(0, free_dispersion, k, 10) for k in range(krange[0] - 1, krange[1] + 1)]
     k_scores = []
 
     if cpu > 1:
@@ -189,21 +138,21 @@ def evaluate_nb_partitions(
     else:  # for the case where it is called in a daemonic subprocess with a single cpu
         nem_input = build_nem_input(index, max_degree_smoothing)
         for arguments in k_args:
-            k_scores.append(run_partitioning(nem_input, *arguments))
+            k_scores.append(score(nem_input, *arguments))
 
     all_bics = defaultdict(float)
     all_icls = defaultdict(float)
     all_lls = defaultdict(float)
-    for k_candidate, log_likelihood, entropy in k_scores:
-        if log_likelihood is not None:
-            nb_params = k_candidate * (
-                len(genomes) + 1 + (len(genomes) if free_dispersion else 1)
-            )
-            all_bics[k_candidate] = log_likelihood - 0.5 * (
-                math.log(nb_params) * nb_families
-            )  # Calculate BIC
-            all_icls[k_candidate] = all_bics[k_candidate] - entropy
-            all_lls[k_candidate] = log_likelihood
+    for k_score in k_scores:
+        k_candidate = k_score.k
+        nb_params = k_candidate * (
+            len(genomes) + 1 + (len(genomes) if free_dispersion else 1)
+        )
+        all_bics[k_candidate] = k_score.log_likelihood - 0.5 * (
+            math.log(nb_params) * nb_families
+        )  # Calculate BIC
+        all_icls[k_candidate] = all_bics[k_candidate] - k_score.entropy
+        all_lls[k_candidate] = k_score.log_likelihood
 
     chosen_k = 3
     best_k = chosen_k
@@ -398,7 +347,7 @@ def partition(
     pangenome.parameters["partition"]["# final nb of partitions"] = k
     pangenome.parameters["partition"]["krange"] = krange
 
-    partitioning_results = {}
+    labels = {}
 
     families = set()
     votes = {}
@@ -421,7 +370,7 @@ def partition(
 
             :param result: Partitioning results
             """
-            for family, label in result[0].items():
+            for family, label in result.partitions.items():
                 votes[family][label[0]] += 1
                 nb_votes = sum(votes[family].values())
                 if (
@@ -486,10 +435,7 @@ def partition(
                 p.close()
                 p.join()
         for fam, data in votes.items():
-            partitioning_results[fam] = max(data, key=data.get)
-
-        # need to compute the median vectors of each partition ???
-        partitioning_results = [partitioning_results, []]  # introduces a 'non feature'.
+            labels[fam] = max(data, key=data.get)
 
         logger.info(
             f"Did {len(chunks)} partitioning with chunks of size {chunk_size} among "
@@ -497,14 +443,10 @@ def partition(
         )
     else:
         nem_input = build_nem_input(index, max_degree_smoothing)
-        partitioning_results = run_partitioning(
-            nem_input,
-            len(genomes),
-            nem_input.scaled_beta(beta),
-            free_dispersion,
-            k=k,
-        )
-        if not partitioning_results[0]:
+        labels = solve(
+            nem_input, nem_input.scaled_beta(beta), free_dispersion, k
+        ).partitions
+        if not labels:
             raise Exception(
                 "Statistical partitioning does not work on your data. "
                 "This usually happens because you used very few (<15) genomes."
@@ -514,9 +456,7 @@ def partition(
             f"{round(time.time() - start_partitioning, 2)} seconds."
         )
 
-    # pangenome.savePartitionParameters(K, beta, free_dispersion, max_degree_smoothing, partitioning_results[1], chunk_size)
-
-    for fam_name, part in partitioning_results[0].items():
+    for fam_name, part in labels.items():
         pangenome.get_gene_family(fam_name).partition = part
 
     pangenome.status["partitioned"] = "Computed"
