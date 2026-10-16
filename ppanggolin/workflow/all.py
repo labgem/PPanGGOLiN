@@ -25,7 +25,7 @@ from ppanggolin.annotate.annotate import (
 )
 from ppanggolin.cluster.cluster import clustering, read_clustering
 from ppanggolin.graph.makeGraph import compute_neighbors_graph
-from ppanggolin.nem.rarefaction import make_rarefaction_curve
+from ppanggolin.nem.rarefaction import RarefactionOptions, make_rarefaction_curve
 from ppanggolin.nem.partition import PartitionOptions, partition
 from ppanggolin.formats.writeBinaries import write_pangenome
 from ppanggolin.formats.writeFlatPangenome import write_pangenome_flat_files
@@ -270,23 +270,24 @@ def launch_workflow(
 
     if args.rarefaction_flag:
         make_rarefaction_curve(
-            pangenome=pangenome,
-            output=args.output,
-            tmpdir=args.tmpdir,
-            beta=args.rarefaction.beta,
-            depth=args.rarefaction.depth,
-            min_sampling=args.rarefaction.min,
-            max_sampling=args.rarefaction.max,
-            max_degree_smoothing=args.rarefaction.max_degree_smoothing,
-            free_dispersion=args.rarefaction.free_dispersion,
-            chunk_size=args.rarefaction.chunk_size,
-            k=args.rarefaction.nb_of_partitions,
-            krange=args.rarefaction.krange,
-            seed=args.rarefaction.seed,
-            reestimate_k=args.rarefaction.reestimate_K,
-            soft_core=args.rarefaction.soft_core,
-            cpu=args.rarefaction.cpu,
-            disable_bar=args.disable_prog_bar,
+            pangenome,
+            RarefactionOptions(
+                output=args.output,
+                beta=args.rarefaction.beta,
+                depth=args.rarefaction.depth,
+                min_sampling=args.rarefaction.min,
+                max_sampling=args.rarefaction.max,
+                max_degree_smoothing=args.rarefaction.max_degree_smoothing,
+                free_dispersion=args.rarefaction.free_dispersion,
+                chunk_size=args.rarefaction.chunk_size,
+                k=args.rarefaction.nb_of_partitions,
+                krange=args.rarefaction.krange,
+                seed=args.rarefaction.seed,
+                reestimate_k=args.rarefaction.reestimate_K,
+                soft_core=args.rarefaction.soft_core,
+                cpu=args.rarefaction.cpu,
+                disable_bar=args.disable_prog_bar,
+            ),
         )
 
     if not args.no_flat_files:
