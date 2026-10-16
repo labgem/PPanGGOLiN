@@ -489,8 +489,7 @@ def _resolve_krange(pangenome: Pangenome, krange: list[int] | None) -> list[int]
     :param krange: Range of k values, None for [3, k of the pangenome].
     :return: The range, [3, 20] if a bound is negative and the pangenome has no k.
     """
-    if krange is None:
-        krange = [3, -1]
+    krange = [3, -1] if krange is None else list(krange)
     try:
         for i in (0, 1):
             if krange[i] < 0:
