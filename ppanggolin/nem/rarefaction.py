@@ -76,7 +76,6 @@ def raref_nem(
             beta * (nb_fam / edges_weight),
             free_dispersion,
             kval=kval,
-            init="param_file",
         )[0]
     else:  # going to need multiple partitioning for this sample...
         cpt_partition = {
@@ -137,7 +136,6 @@ def raref_nem(
                         beta * (nb_fam / edges_weight),
                         free_dispersion,
                         kval=kval,
-                        init="param_file",
                     )
                 )
             condition += 1  # if families are left to validate, draw more chunks

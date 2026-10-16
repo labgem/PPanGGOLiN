@@ -65,7 +65,6 @@ def solve(
     beta: float = 2.5,
     free_dispersion: bool = False,
     kval: int = 3,
-    init: str = "param_file",
     itermax: int = 100,
     just_log_likelihood: bool = False,
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
@@ -79,7 +78,6 @@ def solve(
     :param beta: spatial smoothing coefficient
     :param free_dispersion: whether dispersion is free per genome (`skd`) or shared (`sk_`)
     :param kval: number of partitions
-    :param init: initialization mode
     :param itermax: maximum number of iterations
     :param just_log_likelihood: return only the log-likelihood diagnostics
 
