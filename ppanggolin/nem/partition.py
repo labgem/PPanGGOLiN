@@ -32,6 +32,28 @@ from ppanggolin.utils import mk_outdir
 
 logger = logging.getLogger("PPanGGOLiN")
 
+# the NEM index a pool worker inherited at fork, set by keep_index
+_worker_index: NemIndex | None = None
+
+
+def keep_index(index: NemIndex):
+    """Keep the index this pool worker inherited at fork.
+
+    Under fork, the initializer's arguments are inherited copy-on-write, not pickled.
+
+    :param index: Index passed to the pool's initializer.
+    """
+    global _worker_index
+    _worker_index = index
+
+
+def inherited_index() -> NemIndex:
+    """Give the index this pool worker inherited at fork.
+
+    :return: The index passed to the pool's initializer.
+    """
+    return _worker_index
+
 
 @dataclass
 class PartitionOptions:
@@ -165,19 +187,24 @@ def partition_chunk(
     return solve(nem_input, nem_input.scaled_beta(beta), free_dispersion, k)
 
 
-def _partition_chunk_worker(pack: tuple[NemIndex, int, float, int, bool]) -> NemResult:
-    """Run `partition_chunk` in a pool."""
-    return partition_chunk(*pack)
+def _partition_chunk_worker(args: tuple[list[str], int, float, int, bool]) -> NemResult:
+    """Partition one chunk of the index the pool inherited.
+
+    :param args: (genomes of the chunk, k, beta, max_degree_smoothing, free_dispersion).
+    :return: The partitions of the chunk's families.
+    """
+    genomes, *params = args
+    return partition_chunk(subset_nem_index(inherited_index(), genomes), *params)
 
 
-def _score_k_worker(args: tuple[NemIndex, int, bool, int]) -> KScore:
-    """Score one k in a pool.
+def _score_k_worker(args: tuple[int, bool, int]) -> KScore:
+    """Score one k on the index the pool inherited.
 
-    :param args: (index, max_degree_smoothing, free_dispersion, k).
+    :param args: (max_degree_smoothing, free_dispersion, k).
     :return: The score of k.
     """
-    index, max_degree_smoothing, free_dispersion, k = args
-    nem_input = build_nem_input(index, max_degree_smoothing)
+    max_degree_smoothing, free_dispersion, k = args
+    nem_input = build_nem_input(inherited_index(), max_degree_smoothing)
     return score(nem_input, 0, free_dispersion, k, max_iter=10)
 
 
@@ -204,8 +231,10 @@ def _score_ks(
         return [score(nem_input, 0, free_dispersion, k, max_iter=10) for k in ks]
 
     k_scores = []
-    args = ((index, max_degree_smoothing, free_dispersion, k) for k in ks)
-    with get_context("fork").Pool(processes=cpu) as pool:
+    args = ((max_degree_smoothing, free_dispersion, k) for k in ks)
+    with get_context("fork").Pool(
+        cpu, initializer=keep_index, initargs=(index,)
+    ) as pool:
         with tqdm(
             total=len(ks), unit="Number of partitions", disable=disable_bar
         ) as bar:
@@ -435,10 +464,9 @@ def _partition_in_chunks(
     while not votes.done:
         chunks = draw_chunks(genomes, options.chunk_size, times_drawn, min_draws, rng)
         nb_chunks += len(chunks)
-        # sliced as the pool asks for them, so one chunk is in transit at a time
         args = (
             (
-                subset_nem_index(index, chunk),
+                chunk,
                 k,
                 options.beta,
                 options.max_degree_smoothing,
@@ -447,7 +475,9 @@ def _partition_in_chunks(
             for chunk in chunks
         )
         logger.info("Launching NEM")
-        with get_context("fork").Pool(processes=options.cpu) as pool:
+        with get_context("fork").Pool(
+            options.cpu, initializer=keep_index, initargs=(index,)
+        ) as pool:
             with tqdm(
                 total=len(chunks),
                 unit=" samples partitioned",
