@@ -399,24 +399,6 @@ def evaluate_nb_partitions(
                 name="log likelihood",
                 mode="lines+markers",
             ),
-            go.Scatter(
-                x=sorted(all_bics.keys()),
-                y=[all_bics[key] for key in sorted(all_bics.keys())],
-                name="BIC",
-                mode="lines+markers",
-            ),
-            go.Scatter(
-                x=sorted(all_icls.keys()),
-                y=[all_icls[key] for key in sorted(all_icls.keys())],
-                name="ICL",
-                mode="lines+markers",
-            ),
-            go.Scatter(
-                x=sorted(all_lls.keys()),
-                y=[all_lls[key] for key in sorted(all_lls.keys())],
-                name="log likelihood",
-                mode="lines+markers",
-            ),
         ]
         layout = go.Layout(
             title="ICL curve (best K is "
