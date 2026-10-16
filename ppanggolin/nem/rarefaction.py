@@ -25,7 +25,7 @@ import scipy.optimize as optimization
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info
-from ppanggolin.nem.pynem_backend import set_threads
+from ppanggolin.nem.model import set_threads
 import ppanggolin.nem.partition as ppp
 from ppanggolin.nem.nem_input import (
     NemIndex,

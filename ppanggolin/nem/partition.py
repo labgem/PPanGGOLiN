@@ -22,7 +22,7 @@ import plotly.graph_objs as go
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
-from ppanggolin.nem.pynem_backend import set_threads, solve
+from ppanggolin.nem.model import set_threads, solve
 from ppanggolin.nem.nem_input import (
     NemIndex,
     build_nem_index,
