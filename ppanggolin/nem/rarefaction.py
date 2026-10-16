@@ -25,9 +25,9 @@ import scipy.optimize as optimization
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info
-from ppanggolin.nem.model import NemResult, solve
+from ppanggolin.nem.model import solve
 from ppanggolin.nem.model import set_threads
-from ppanggolin.nem.partition import evaluate_nb_partitions
+from ppanggolin.nem.partition import ChunkVotes, draw_chunks, evaluate_nb_partitions
 from ppanggolin.nem.nem_input import (
     NemIndex,
     build_nem_index,
@@ -77,60 +77,28 @@ def partition_sample(
 
     if len(genomes) <= chunk_size:
         nem_input = build_nem_input(sample, max_degree_smoothing)
-        votes = solve(
+        labels = solve(
             nem_input, nem_input.scaled_beta(beta), free_dispersion, k
         ).partitions
     else:  # going to need multiple partitioning for this sample...
-        votes = {fam: {"P": 0, "S": 0, "C": 0, "U": 0} for fam in sample.fam_names}
-        validated = set()
-
-        def count_votes(
-            result: NemResult,
-        ):
-            """
-            Validate partition assignation to families
-
-            :param result: Partitioning results
-            """
-            for family, label in result.partitions.items():
-                votes[family][label[0]] += 1
-                nb_votes = sum(votes[family].values())
-                if (
-                    nb_votes > len(genomes) / chunk_size
-                    and max(votes[family].values()) >= nb_votes * 0.5
-                ) or (nb_votes > len(genomes)):
-                    if family not in validated:
-                        if max(votes[family].values()) < nb_votes * 0.5:
-                            votes[family]["U"] = len(genomes)
-                        validated.add(family)
-
+        votes = ChunkVotes(sample.fam_names, len(genomes), chunk_size)
         rng = random.Random(f"{seed}-{sample_id}")
-        times_drawn = Counter()
-        for org in genomes:
-            times_drawn[org] = 0
+        times_drawn = Counter({genome: 0 for genome in genomes})
         min_draws = len(genomes) / chunk_size
-
-        while len(validated) < len(votes):
-            chunks = []
-
-            while not all(val >= min_draws for val in times_drawn.values()):
-                # each family must be tested at least len(select_organisms)/chunk_size times.
-                shuffled = sorted(genomes)
-                rng.shuffle(shuffled)
-                while len(shuffled) > chunk_size:
-                    chunks.append(set(shuffled[:chunk_size]))
-                    for org in chunks[-1]:
-                        times_drawn[org] += 1
-                    shuffled = shuffled[chunk_size:]
-            for chunk in chunks:
+        while not votes.done:
+            for chunk in draw_chunks(
+                sample.org_names, chunk_size, times_drawn, min_draws, rng
+            ):
                 nem_input = build_nem_input(
                     subset_nem_index(sample, chunk), max_degree_smoothing
                 )
-                count_votes(
-                    solve(nem_input, nem_input.scaled_beta(beta), free_dispersion, k)
+                result = solve(
+                    nem_input, nem_input.scaled_beta(beta), free_dispersion, k
                 )
+                votes.add(result.partitions)
             min_draws += 1  # if families are left to validate, draw more chunks
-    if len(votes) == 0:
+        labels = votes.labels()
+    if len(labels) == 0:
         counts = {
             "persistent": "NA",
             "shell": "NA",
@@ -141,11 +109,7 @@ def partition_sample(
     else:
         counts = {"persistent": 0, "shell": 0, "cloud": 0, "undefined": 0, "K": k}
 
-        for val in votes.values():
-            if isinstance(val, str):
-                label = val
-            else:
-                label = max(val, key=val.get)
+        for label in labels.values():
             if label.startswith("P"):
                 counts["persistent"] += 1
             elif label.startswith("C"):
