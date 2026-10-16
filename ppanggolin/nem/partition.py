@@ -12,8 +12,6 @@ import math
 from pathlib import Path
 
 # installed libraries
-from typing import Tuple
-
 from tqdm import tqdm
 import plotly.offline as out_plotly
 import plotly.graph_objs as go
@@ -31,18 +29,6 @@ from ppanggolin.nem.nem_input import (
 )
 
 logger = logging.getLogger("PPanGGOLiN")
-
-
-def _score_k_worker(args: Tuple[NemIndex, int, float, bool, int, int]) -> KScore:
-    """
-    Allow to score a number of partitions in multiprocessing
-
-    :param args: {chunk: NemIndex, max_degree_smoothing: int, beta: float, free_dispersion: bool,
-                  k: int, max_iter: int}
-    :return: Score of k
-    """
-    chunk, max_degree_smoothing, *score_args = args
-    return score(build_nem_input(chunk, max_degree_smoothing), *score_args)
 
 
 class ChunkVotes:
@@ -152,170 +138,212 @@ def _partition_chunk_worker(pack: tuple) -> NemResult:
     return partition_chunk(*pack)
 
 
+def _score_k_worker(args: tuple[NemIndex, int, bool, int]) -> KScore:
+    """Score one k in a pool.
+
+    :param args: (index, max_degree_smoothing, free_dispersion, k).
+    :return: The score of k.
+    """
+    index, max_degree_smoothing, free_dispersion, k = args
+    nem_input = build_nem_input(index, max_degree_smoothing)
+    return score(nem_input, 0, free_dispersion, k, max_iter=10)
+
+
+def _score_ks(
+    index: NemIndex,
+    ks: range,
+    max_degree_smoothing: int,
+    free_dispersion: bool,
+    cpu: int,
+    disable_bar: bool,
+) -> list[KScore]:
+    """Fit NEM without smoothing for each k.
+
+    :param index: Index of the genomes to score k on.
+    :param ks: Values of k to score.
+    :param max_degree_smoothing: Maximum degree of a family included in the smoothing.
+    :param free_dispersion: Free dispersion per genome instead of shared.
+    :param cpu: Number of available CPUs.
+    :param disable_bar: Disable the progress bar.
+    :return: One score per k.
+    """
+    if cpu <= 1:
+        nem_input = build_nem_input(index, max_degree_smoothing)
+        return [score(nem_input, 0, free_dispersion, k, max_iter=10) for k in ks]
+
+    k_scores = []
+    args = ((index, max_degree_smoothing, free_dispersion, k) for k in ks)
+    with get_context("fork").Pool(
+        processes=cpu, initializer=set_threads, initargs=(1,)
+    ) as pool:
+        with tqdm(
+            total=len(ks), unit="Number of partitions", disable=disable_bar
+        ) as bar:
+            for k_score in pool.imap_unordered(_score_k_worker, args):
+                k_scores.append(k_score)
+                bar.update()
+    return k_scores
+
+
+def _information_criteria(
+    k_scores: list[KScore], nb_genomes: int, nb_families: int, free_dispersion: bool
+) -> tuple[defaultdict, defaultdict, defaultdict]:
+    """Compute the BIC and ICL of each k.
+
+    :param k_scores: Score of each k.
+    :param nb_genomes: Number of genomes the scores were computed on.
+    :param nb_families: Number of families the scores were computed on.
+    :param free_dispersion: Free dispersion per genome instead of shared.
+    :return: BIC, ICL and log-likelihood of each k.
+    """
+    bics, icls, lls = defaultdict(float), defaultdict(float), defaultdict(float)
+    for k_score in k_scores:
+        k = k_score.k
+        nb_params = k * (nb_genomes + 1 + (nb_genomes if free_dispersion else 1))
+        bics[k] = k_score.log_likelihood - 0.5 * (math.log(nb_params) * nb_families)
+        icls[k] = bics[k] - k_score.entropy
+        lls[k] = k_score.log_likelihood
+    return bics, icls, lls
+
+
+def _select_k(icls: defaultdict, icl_margin: float) -> tuple[int, int, int]:
+    """Choose the lowest k whose ICL is within a margin of the best one.
+
+    :param icls: ICL of each k.
+    :param icl_margin: Margin, as a fraction of the ICL range.
+    :return: The chosen k (at least 3), the selected k and the k of maximal ICL.
+    """
+    chosen_k = best_k = 3
+    max_icl_k = 0
+    if len(icls) > 3:
+        max_icl_k = max(sorted(icls), key=icls.get)
+        delta_icl = (icls[max_icl_k] - min(icls.values())) * icl_margin
+        best_k = min(
+            k
+            for k, icl in icls.items()
+            if icl >= icls[max_icl_k] - delta_icl and k <= max_icl_k
+        )
+        chosen_k = best_k if best_k >= 3 else chosen_k
+    return chosen_k, best_k, max_icl_k
+
+
+def _draw_icl_curve(
+    output: Path,
+    bics: defaultdict,
+    icls: defaultdict,
+    lls: defaultdict,
+    best_k: int,
+    max_icl_k: int,
+    icl_margin: float,
+    max_k: int,
+):
+    """Plot the BIC, ICL and log-likelihood of each k.
+
+    :param output: Output directory.
+    :param bics: BIC of each k.
+    :param icls: ICL of each k.
+    :param lls: Log-likelihood of each k.
+    :param best_k: Selected k.
+    :param max_icl_k: k of maximal ICL.
+    :param icl_margin: Margin used to select k.
+    :param max_k: Largest k tested.
+    """
+    traces = [
+        go.Scatter(
+            x=sorted(values.keys()),
+            y=[values[key] for key in sorted(values.keys())],
+            name=name,
+            mode="lines+markers",
+        )
+        for name, values in (("BIC", bics), ("ICL", icls), ("log likelihood", lls))
+    ]
+    line = dict(width=1, dash="dashdot", color="black")
+    layout = go.Layout(
+        title=f"ICL curve (best K is {best_k}, ICL_th= is {icl_margin})",
+        titlefont=dict(size=20),
+        xaxis=dict(title="number of partitions"),
+        yaxis=dict(title="ICL, BIC, log likelihood"),
+        plot_bgcolor="#ffffff",
+        shapes=[
+            dict(type="line", x0=best_k, x1=best_k, y0=0, y1=icls[best_k], line=line),
+            dict(
+                type="line",
+                x0=max_icl_k,
+                x1=max_icl_k,
+                y0=0,
+                y1=icls[max_icl_k],
+                line=line,
+            ),
+            dict(
+                type="line",
+                x0=best_k,
+                x1=max_icl_k,
+                y0=icls[max_icl_k],
+                y1=icls[max_icl_k],
+                line=line,
+            ),
+            dict(
+                type="line",
+                x0=2,
+                x1=max_k,
+                y0=icls[best_k],
+                y1=icls[best_k],
+                line=line,
+            ),
+        ],
+    )
+    fig = go.Figure(data=traces, layout=layout)
+    out_plot = output / f"ICL_curve_K{best_k}.html"
+    out_plotly.plot(fig, filename=out_plot.as_posix(), auto_open=False)
+
+
 def evaluate_nb_partitions(
     index: NemIndex,
-    output: Path = None,
+    output: Path | None = None,
     max_degree_smoothing: int = 10,
     free_dispersion: bool = False,
     chunk_size: int = 500,
-    krange: list = None,
+    krange: list[int] | None = None,
     icl_margin: float = 0.05,
     draw_icl: bool = False,
     cpu: int = 1,
     seed: int = 42,
     disable_bar: bool = False,
 ) -> int:
+    """Estimate the number of partitions of the pangenome.
+
+    :param index: NEM index of the genomes to estimate k on.
+    :param output: Output directory, needed to draw the ICL curve.
+    :param max_degree_smoothing: Maximum degree of a family included in the smoothing.
+    :param free_dispersion: Free dispersion per genome instead of shared.
+    :param chunk_size: Estimate k on a random chunk of this many genomes when there are more.
+    :param krange: Range of k values to test.
+    :param icl_margin: Margin used to select the lowest k maximizing the ICL.
+    :param draw_icl: Draw the ICL curve of the tested k values.
+    :param cpu: Number of available CPUs.
+    :param seed: Seed used to generate random numbers.
+    :param disable_bar: Disable the progress bar.
+    :return: The estimated number of partitions.
     """
-    Evaluate the optimal number of partition for the pangenome
-
-    :param index: NEM index of the genomes to evaluate K on
-    :param output: output directory path to draw ICL
-    :param max_degree_smoothing: Maximum degree of the nodes to be included in the smoothing process.
-    :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
-    :param chunk_size: Size of the chunks when performing partitioning using chunks of organisms.
-    :param krange: Range of K values to test when detecting K automatically.
-    :param icl_margin: margin use to select the lowest K in maximizing ICL
-    :param draw_icl: draw the ICL curve for all the tested K values.
-    :param cpu: Number of available core
-    :param seed: seed used to generate random numbers
-    :param disable_bar: Disable progress bar
-
-    :return: Ideal number of partition computed
-    """
-
-    random.seed(seed)  # Seeded before forking
+    krange = [3, 20] if krange is None else krange
     genomes = index.org_names
     if len(genomes) > chunk_size:
-        genomes = random.sample(genomes, chunk_size)
+        genomes = random.Random(seed).sample(genomes, chunk_size)
         index = subset_nem_index(index, genomes)
 
-    nb_families = len(index.fam_names)
-    max_icl_k = 0
-    # follow order of score args
-    k_args = [(0, free_dispersion, k, 10) for k in range(krange[0] - 1, krange[1] + 1)]
-    k_scores = []
+    ks = range(krange[0] - 1, krange[1] + 1)
+    k_scores = _score_ks(
+        index, ks, max_degree_smoothing, free_dispersion, cpu, disable_bar
+    )
+    bics, icls, lls = _information_criteria(
+        k_scores, len(genomes), len(index.fam_names), free_dispersion
+    )
+    chosen_k, best_k, max_icl_k = _select_k(icls, icl_margin)
 
-    if cpu > 1:
-        bar = tqdm(
-            range(len(k_args)),
-            unit="Number of partitions",
-            disable=disable_bar,
+    if len(bics) > 0 and draw_icl:
+        _draw_icl_curve(
+            output, bics, icls, lls, best_k, max_icl_k, icl_margin, krange[1]
         )
-        with get_context("fork").Pool(
-            processes=cpu, initializer=set_threads, initargs=(1,)
-        ) as p:
-            for result in p.imap_unordered(
-                _score_k_worker,
-                ((index, max_degree_smoothing, *arguments) for arguments in k_args),
-            ):
-                k_scores.append(result)
-                bar.update()
-            p.close()
-            p.join()
-        bar.close()
-    else:  # for the case where it is called in a daemonic subprocess with a single cpu
-        nem_input = build_nem_input(index, max_degree_smoothing)
-        for arguments in k_args:
-            k_scores.append(score(nem_input, *arguments))
-
-    all_bics = defaultdict(float)
-    all_icls = defaultdict(float)
-    all_lls = defaultdict(float)
-    for k_score in k_scores:
-        k_candidate = k_score.k
-        nb_params = k_candidate * (
-            len(genomes) + 1 + (len(genomes) if free_dispersion else 1)
-        )
-        all_bics[k_candidate] = k_score.log_likelihood - 0.5 * (
-            math.log(nb_params) * nb_families
-        )  # Calculate BIC
-        all_icls[k_candidate] = all_bics[k_candidate] - k_score.entropy
-        all_lls[k_candidate] = k_score.log_likelihood
-
-    chosen_k = 3
-    best_k = chosen_k
-
-    if len(all_bics) > 3:
-        max_icl_k = max(sorted(all_icls), key=all_icls.get)
-        delta_icl = (all_icls[max_icl_k] - min(all_icls.values())) * icl_margin
-        best_k = min(
-            {
-                k
-                for k, icl in all_icls.items()
-                if icl >= all_icls[max_icl_k] - delta_icl and k <= max_icl_k
-            }
-        )
-        chosen_k = best_k if best_k >= 3 else chosen_k
-
-    if len(all_bics) > 0 and draw_icl:
-        traces = [
-            go.Scatter(
-                x=sorted(all_bics.keys()),
-                y=[all_bics[key] for key in sorted(all_bics.keys())],
-                name="BIC",
-                mode="lines+markers",
-            ),
-            go.Scatter(
-                x=sorted(all_icls.keys()),
-                y=[all_icls[key] for key in sorted(all_icls.keys())],
-                name="ICL",
-                mode="lines+markers",
-            ),
-            go.Scatter(
-                x=sorted(all_lls.keys()),
-                y=[all_lls[key] for key in sorted(all_lls.keys())],
-                name="log likelihood",
-                mode="lines+markers",
-            ),
-        ]
-        layout = go.Layout(
-            title="ICL curve (best K is "
-            + str(best_k)
-            + ", ICL_th= is "
-            + str(icl_margin)
-            + ")",
-            titlefont=dict(size=20),
-            xaxis=dict(title="number of partitions"),
-            yaxis=dict(title="ICL, BIC, log likelihood"),
-            plot_bgcolor="#ffffff",
-            shapes=[
-                dict(
-                    type="line",
-                    x0=best_k,
-                    x1=best_k,
-                    y0=0,
-                    y1=all_icls[best_k],
-                    line=dict(dict(width=1, dash="dashdot", color="black")),
-                ),
-                dict(
-                    type="line",
-                    x0=max_icl_k,
-                    x1=max_icl_k,
-                    y0=0,
-                    y1=all_icls[max_icl_k],
-                    line=dict(dict(width=1, dash="dashdot", color="black")),
-                ),
-                dict(
-                    type="line",
-                    x0=best_k,
-                    x1=max_icl_k,
-                    y0=all_icls[max_icl_k],
-                    y1=all_icls[max_icl_k],
-                    line=dict(dict(width=1, dash="dashdot", color="black")),
-                ),
-                dict(
-                    type="line",
-                    x0=2,
-                    x1=krange[1],
-                    y0=all_icls[best_k],
-                    y1=all_icls[best_k],
-                    line=dict(dict(width=1, dash="dashdot", color="black")),
-                ),
-            ],
-        )
-        fig = go.Figure(data=traces, layout=layout)
-        out_plot = output / f"ICL_curve_K{str(best_k)}.html"
-        out_plotly.plot(fig, filename=out_plot.as_posix(), auto_open=False)
     return chosen_k
 
 
