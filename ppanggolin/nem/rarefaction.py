@@ -7,11 +7,10 @@ import os
 import random
 import time
 import warnings
-from pathlib import Path
-from typing import Tuple, Dict
 from collections import Counter
 from dataclasses import dataclass, replace
 from multiprocessing import get_context
+from pathlib import Path
 
 # installed libraries
 import gmpy2
@@ -40,7 +39,6 @@ from ppanggolin.nem.partition import (
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir
 
-
 logger = logging.getLogger("PPanGGOLiN")
 
 CURVE_COLUMNS = [
@@ -66,6 +64,44 @@ COLORS = {
     "undefined": "#828282",
 }
 NB_GENOMES_MIN_FITTING = 15
+
+
+@dataclass
+class RarefactionOptions:
+    """Parameters of the rarefaction command.
+
+    :param output: Output directory.
+    :param beta: Strength of the smoothing using the graph topology. 0 deactivates it.
+    :param depth: Number of samples drawn at each sample size.
+    :param min_sampling: Smallest sample size.
+    :param max_sampling: Largest sample size.
+    :param max_degree_smoothing: Maximum degree of a family included in the smoothing.
+    :param free_dispersion: Free dispersion around each partition's centroid per genome.
+    :param chunk_size: Partition a sample in chunks of this many genomes when it has more.
+    :param k: Number of partitions. Under 3, it is reused from the partition or estimated.
+    :param krange: Range of k values tested when estimating k. Negative bounds take the pangenome's k.
+    :param cpu: Number of available CPUs.
+    :param seed: Seed used to generate random numbers.
+    :param reestimate_k: Estimate k again for each sample.
+    :param soft_core: Soft core threshold.
+    :param disable_bar: Disable the progress bars.
+    """
+
+    output: Path
+    beta: float = 2.5
+    depth: int = 30
+    min_sampling: int = 1
+    max_sampling: int = 100
+    max_degree_smoothing: int = 10
+    free_dispersion: bool = False
+    chunk_size: int = 500
+    k: int = -1
+    krange: list[int] | None = None
+    cpu: int = 1
+    seed: int = 42
+    reestimate_k: bool = False
+    soft_core: float = 0.95
+    disable_bar: bool = False
 
 
 def _count_partitions(labels: dict[str, str], k: int) -> dict[str, int | str]:
@@ -97,80 +133,64 @@ def _count_partitions(labels: dict[str, str], k: int) -> dict[str, int | str]:
 
 
 def partition_sample(
-    sample_id: int,
-    sample: NemIndex,
-    beta: float = 2.5,
-    max_degree_smoothing: int = 10,
-    free_dispersion: bool = False,
-    chunk_size: int = 500,
-    k: int = -1,
-    krange: list = None,
-    seed: int = 42,
-) -> Tuple[Dict[str, int], int]:
+    sample_id: int, sample: NemIndex, k: int, options: RarefactionOptions
+) -> tuple[dict[str, int | str], int]:
+    """Partition the gene families of one sample of genomes.
+
+    :param sample_id: Position of the sample.
+    :param sample: NEM index of the sample.
+    :param k: Number of partitions. Under 3, it is estimated on the sample.
+    :param options: Rarefaction parameters, with the krange already resolved.
+    :return: Number of families in each partition, and the sample's position.
     """
-
-    :param sample_id: Index of the sample group organisms
-    :param sample: NEM index of the sample group organisms
-    :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
-    :param max_degree_smoothing:  Maximum degree of the nodes to be included in the smoothing process.
-    :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
-    :param chunk_size: Size of the chunks when performing partitioning using chunks of organisms.
-    :param k: Number of partitions to use
-    :param krange: Range of K values to test when detecting K automatically.
-    :param seed: seed used to generate random numbers
-
-    :return: Count of each partition and parameters for the given sample index
-    """
-    genomes = set(sample.org_names)
-
-    krange = [3, 20] if krange is None else krange
-
+    genomes = sample.org_names
     if k < 3:
         k = evaluate_nb_partitions(
             index=sample,
-            max_degree_smoothing=max_degree_smoothing,
-            free_dispersion=free_dispersion,
-            chunk_size=chunk_size,
-            krange=krange,
-            seed=seed,
+            max_degree_smoothing=options.max_degree_smoothing,
+            free_dispersion=options.free_dispersion,
+            chunk_size=options.chunk_size,
+            krange=options.krange,
+            seed=options.seed,
         )
 
-    if len(genomes) <= chunk_size:  # fits in one chunk
-        nem_input = build_nem_input(sample, max_degree_smoothing)
-        labels = solve(
-            nem_input, nem_input.scaled_beta(beta), free_dispersion, k
+    if len(genomes) <= options.chunk_size:
+        labels = partition_chunk(
+            sample,
+            k,
+            options.beta,
+            options.max_degree_smoothing,
+            options.free_dispersion,
         ).partitions
-    else:  # going to need multiple partitioning for this sample...
-        votes = ChunkVotes(sample.fam_names, len(genomes), chunk_size)
-        rng = random.Random(f"{seed}-{sample_id}")  # workers are reseeded at fork
+    else:
+        votes = ChunkVotes(sample.fam_names, len(genomes), options.chunk_size)
+        # forked workers are reseeded, so each sample has its own generator
+        rng = random.Random(f"{options.seed}-{sample_id}")
         times_drawn = Counter({genome: 0 for genome in genomes})
-        min_draws = len(genomes) / chunk_size
+        min_draws = len(genomes) / options.chunk_size
         while not votes.done:
             for chunk in draw_chunks(
-                sample.org_names, chunk_size, times_drawn, min_draws, rng
+                genomes, options.chunk_size, times_drawn, min_draws, rng
             ):
                 nem_input = build_nem_input(
-                    subset_nem_index(sample, chunk), max_degree_smoothing
+                    subset_nem_index(sample, chunk), options.max_degree_smoothing
                 )
                 result = solve(
-                    nem_input, nem_input.scaled_beta(beta), free_dispersion, k
+                    nem_input,
+                    nem_input.scaled_beta(options.beta),
+                    options.free_dispersion,
+                    k,
                 )
                 votes.add(result.partitions)
-            min_draws += 1  # if families are left to validate, resample more
+            min_draws += 1  # if families are left to validate, draw more chunks
         labels = votes.labels()
     return _count_partitions(labels, k), sample_id
 
 
 def _partition_sample_worker(
-    args: Tuple[int, NemIndex, float, int, bool, int, int, list, int]
-) -> Tuple[Tuple[Dict[str, int], int]]:
-    """
-    Launch partition_sample in multiprocessing
-
-    :param args: {index: int, sample: NemIndex, beta: float, max_degree_smoothing: int, free_dispersion: bool,
-                  chunk_size: int, k: int, krange: list, seed: int}
-    :return: Count of each partition and parameters for the given sample index
-    """
+    args: tuple[int, NemIndex, int, RarefactionOptions],
+) -> tuple[dict[str, int | str], int]:
+    """Run `partition_sample` in a pool."""
     return partition_sample(*args)
 
 
@@ -555,37 +575,23 @@ def _partition_samples(
     nem_index: NemIndex,
     samples: list[set],
     k: int,
+    options: RarefactionOptions,
     rng: random.Random,
     rows: list[dict],
-    beta: float,
-    max_degree_smoothing: int,
-    free_dispersion: bool,
-    chunk_size: int,
-    krange: list[int],
-    seed: int,
-    cpu: int,
-    disable_bar: bool,
 ):
     """Partition every sample and add its partition counts to its row.
 
     :param nem_index: NEM index of all the genomes.
     :param samples: Samples of genomes.
     :param k: Number of partitions, under 3 to estimate it on each sample.
+    :param options: Rarefaction parameters, with the krange already resolved.
     :param rng: Random generator, used to shuffle the processing order.
     :param rows: Family counts of each sample, updated in place.
-    :param beta: Strength of the smoothing using the graph topology.
-    :param max_degree_smoothing: Maximum degree of a family included in the smoothing.
-    :param free_dispersion: Free dispersion per genome instead of shared.
-    :param chunk_size: Partition a sample in chunks of this many genomes when it has more.
-    :param krange: Range of k values tested when estimating k, already resolved.
-    :param seed: Seed used to generate random numbers.
-    :param cpu: Number of available CPUs.
-    :param disable_bar: Disable the progress bar.
     """
-    with get_context("fork").Pool(processes=cpu) as pool:
+    with get_context("fork").Pool(processes=options.cpu) as pool:
         logger.info(" Partitioning all samples...")
         with tqdm(
-            total=len(samples), unit="samples partitioned", disable=disable_bar
+            total=len(samples), unit="samples partitioned", disable=options.disable_bar
         ) as bar:
             order = list(range(len(samples)))
             # shuffled so that the progress bar is closer to reality
@@ -596,13 +602,8 @@ def _partition_samples(
                     subset_nem_index(
                         nem_index, [org.name for org in samples[sample_id]]
                     ),
-                    beta,
-                    max_degree_smoothing,
-                    free_dispersion,
-                    chunk_size,
                     k,
-                    krange,
-                    seed,
+                    options,
                 )
                 for sample_id in order
             )
@@ -613,60 +614,29 @@ def _partition_samples(
                 bar.update()
 
 
-def make_rarefaction_curve(
-    pangenome: Pangenome,
-    output: Path,
-    beta: float = 2.5,
-    depth: int = 30,
-    min_sampling: int = 1,
-    max_sampling: int = 100,
-    max_degree_smoothing: int = 10,
-    free_dispersion: bool = False,
-    chunk_size: int = 500,
-    k: int = -1,
-    krange: list = None,
-    cpu: int = 1,
-    seed: int = 42,
-    reestimate_k: bool = False,
-    soft_core: float = 0.95,
-    disable_bar: bool = False,
-):
-    """
-    Main function to make the rarefaction curve
+def make_rarefaction_curve(pangenome: Pangenome, options: RarefactionOptions):
+    """Partition random samples of genomes of growing size and draw the rarefaction curves.
 
-    :param pangenome: Pangenome containing GeneFamilies to align with sequence set
-    :param output: output directory path to draw the rarefaction curve and associated data
-    :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
-    :param depth: Number of samplings at each sampling point
-    :param min_sampling: Minimum number of organisms in a sample
-    :param max_sampling: Maximum number of organisms in a sample
-    :param max_degree_smoothing: Maximum degree of the nodes to be included in the smoothing process.
-    :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
-    :param chunk_size: Size of the chunks when performing partitioning using chunks of organisms.
-    :param k: Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.
-    :param krange: Range of K values to test when detecting K automatically.
-    :param cpu: Number of available core
-    :param seed: seed used to generate random numbers
-    :param reestimate_k: recompute the number of partitions for each sample between the values provided by krange
-    :param soft_core: Soft core threshold
-    :param disable_bar: Disable progress bar
+    :param pangenome: Pangenome with gene families and neighbors graph.
+    :param options: Rarefaction parameters.
     """
-    krange = _resolve_krange(pangenome, krange)
+    krange = _resolve_krange(pangenome, options.krange)
     check_pangenome_info(
         pangenome,
         need_annotations=True,
         need_families=True,
         need_graph=True,
-        disable_bar=disable_bar,
+        disable_bar=options.disable_bar,
     )
     nem_index = build_nem_index(pangenome)
 
-    if float(pangenome.number_of_organisms) < max_sampling:
+    if float(pangenome.number_of_organisms) < options.max_sampling:
         max_sampling = pangenome.number_of_organisms
     else:
-        max_sampling = int(max_sampling)
+        max_sampling = int(options.max_sampling)
 
-    if k < 3 and not reestimate_k:  # estimate k once and for all
+    k = options.k
+    if k < 3 and not options.reestimate_k:  # estimate k once and for all
         try:
             k = pangenome.parameters["partition"]["# final nb of partitions"]
             logger.info(f"Reuse the number of partitions {k}")
@@ -674,80 +644,76 @@ def make_rarefaction_curve(
             logger.info("Estimating the number of partitions...")
             k = evaluate_nb_partitions(
                 index=nem_index,
-                max_degree_smoothing=max_degree_smoothing,
-                free_dispersion=free_dispersion,
-                chunk_size=chunk_size,
+                max_degree_smoothing=options.max_degree_smoothing,
+                free_dispersion=options.free_dispersion,
+                chunk_size=options.chunk_size,
                 krange=krange,
-                cpu=cpu,
-                seed=seed,
+                cpu=options.cpu,
+                seed=options.seed,
+                disable_bar=options.disable_bar,
             )
             logger.info(f"The number of partitions has been evaluated at {k}")
 
     logger.info("Extracting samples ...")
-    rng = random.Random(seed)
+    rng = random.Random(options.seed)
     samples = _draw_samples(
-        list(pangenome.organisms), min_sampling, max_sampling, depth, rng
+        list(pangenome.organisms),
+        options.min_sampling,
+        max_sampling,
+        options.depth,
+        rng,
     )
     logger.info(f"Done sampling genomes in the pan, there are {len(samples)} samples")
 
-    rows = _exact_and_soft_counts(pangenome, samples, soft_core, disable_bar)
+    rows = _exact_and_soft_counts(
+        pangenome, samples, options.soft_core, options.disable_bar
+    )
     _partition_samples(
-        nem_index,
-        samples,
-        k,
-        rng,
-        rows,
-        beta,
-        max_degree_smoothing,
-        free_dispersion,
-        chunk_size,
-        krange,
-        seed,
-        cpu,
-        disable_bar,
+        nem_index, samples, k, replace(options, krange=krange), rng, rows
     )
 
     logger.info("Done  partitioning everything")
     warnings.filterwarnings("ignore")
-    draw_curve(output, rows, max_sampling)
+    draw_curve(options.output, rows, max_sampling)
     warnings.resetwarnings()
     logger.info("Done making the rarefaction curves")
 
 
 def launch(args: argparse.Namespace):
-    """
-    Command launcher
+    """Command launcher.
 
-    :param args: All arguments provide by user
+    :param args: All arguments provided by the user.
     """
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
     make_rarefaction_curve(
-        pangenome=pangenome,
-        output=args.output,
-        beta=args.beta,
-        depth=args.depth,
-        min_sampling=args.min,
-        max_sampling=args.max,
-        max_degree_smoothing=args.max_degree_smoothing,
-        free_dispersion=args.free_dispersion,
-        chunk_size=args.chunk_size,
-        k=args.nb_of_partitions,
-        krange=args.krange,
-        cpu=args.cpu,
-        seed=args.seed,
-        reestimate_k=args.reestimate_K,
-        soft_core=args.soft_core,
-        disable_bar=args.disable_prog_bar,
+        pangenome,
+        RarefactionOptions(
+            output=args.output,
+            beta=args.beta,
+            depth=args.depth,
+            min_sampling=args.min,
+            max_sampling=args.max,
+            max_degree_smoothing=args.max_degree_smoothing,
+            free_dispersion=args.free_dispersion,
+            chunk_size=args.chunk_size,
+            k=args.nb_of_partitions,
+            krange=args.krange,
+            cpu=args.cpu,
+            seed=args.seed,
+            reestimate_k=args.reestimate_K,
+            soft_core=args.soft_core,
+            disable_bar=args.disable_prog_bar,
+        ),
     )
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """Create the subparser of the rarefaction command.
 
-    :param sub_parser : Subparser of the main parser.
-    :return : The rarefaction parser.
+    :param sub_parser: Subparsers of the main parser.
+    :return: The rarefaction parser.
     """
     parser = sub_parser.add_parser(
         "rarefaction",
@@ -761,7 +727,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
 
 def parser_rarefaction(parser: argparse.ArgumentParser):
-    """Add the arguments for the rarefaction command.
+    """Add the arguments of the rarefaction command.
 
     :param parser: Parser to add them to.
     """
