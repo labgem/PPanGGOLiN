@@ -45,6 +45,84 @@ def _score_k_worker(args: Tuple[NemIndex, int, float, bool, int, int]) -> KScore
     return score(build_nem_input(chunk, max_degree_smoothing), *score_args)
 
 
+class ChunkVotes:
+    """Labels each gene family got over the chunks of genomes it was partitioned in."""
+
+    def __init__(self, families: list[str], nb_genomes: int, chunk_size: int):
+        """Start with no votes.
+
+        :param families: Names of the gene families to vote on.
+        :param nb_genomes: Number of genomes the chunks are drawn from.
+        :param chunk_size: Number of genomes in a chunk.
+        """
+        self.votes = {fam: {"P": 0, "S": 0, "C": 0, "U": 0} for fam in families}
+        self.validated = set()
+        self.nb_genomes = nb_genomes
+        self.chunk_size = chunk_size
+
+    @property
+    def done(self) -> bool:
+        """Whether every family has a validated label."""
+        return len(self.validated) >= len(self.votes)
+
+    def add(self, partitions: dict[str, str]):
+        """Count the labels of one chunk and validate the families with a clear majority.
+
+        A family left without an absolute majority after more votes than genomes is undefined.
+
+        :param partitions: Label of each family of the chunk.
+        """
+        for family, label in partitions.items():
+            votes = self.votes[family]
+            votes[label[0]] += 1
+            nb_votes = sum(votes.values())
+            majority = max(votes.values()) >= nb_votes * 0.5
+            if (
+                nb_votes > self.nb_genomes / self.chunk_size and majority
+            ) or nb_votes > self.nb_genomes:
+                if family not in self.validated:
+                    if not majority:
+                        votes["U"] = self.nb_genomes
+                    self.validated.add(family)
+
+    def labels(self) -> dict[str, str]:
+        """Give each family its most voted label.
+
+        :return: Label of each family.
+        """
+        return {
+            family: max(votes, key=votes.get) for family, votes in self.votes.items()
+        }
+
+
+def draw_chunks(
+    genomes: list[str],
+    chunk_size: int,
+    times_drawn: Counter,
+    min_draws: float,
+    rng: random.Random,
+) -> list[list[str]]:
+    """Shuffle the genomes into chunks until each was drawn at least `min_draws` times.
+
+    :param genomes: Genome names, in a stable order.
+    :param chunk_size: Number of genomes in a chunk.
+    :param times_drawn: Number of chunks each genome is already in, updated in place.
+    :param min_draws: Number of chunks each genome must be in.
+    :param rng: Random generator used to shuffle.
+    :return: The new chunks.
+    """
+    chunks = []
+    while not all(n >= min_draws for n in times_drawn.values()):
+        shuffled = list(genomes)
+        rng.shuffle(shuffled)
+        while len(shuffled) > chunk_size:
+            chunks.append(shuffled[:chunk_size])
+            for genome in chunks[-1]:
+                times_drawn[genome] += 1
+            shuffled = shuffled[chunk_size:]
+    return chunks
+
+
 def partition_chunk(
     chunk: NemIndex,
     k: int,
@@ -345,59 +423,18 @@ def partition(
     pangenome.parameters["partition"]["# final nb of partitions"] = k
     pangenome.parameters["partition"]["krange"] = krange
 
-    labels = {}
-
-    families = set()
-    votes = {}
-    random.seed(seed)
-
-    for fam in pangenome.gene_families:
-        families.add(fam)
-        if chunk_size < len(genomes):
-            votes[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
-
     start_partitioning = time.time()
     logger.info("Partitioning...")
-    nb_families = len(families)
     if chunk_size < len(genomes):
-        validated = set()
-
-        def count_votes(result):
-            """
-            Validate partition assignation to families
-
-            :param result: Partitioning results
-            """
-            for family, label in result.partitions.items():
-                votes[family][label[0]] += 1
-                nb_votes = sum(votes[family].values())
-                if (
-                    nb_votes > len(genomes) / chunk_size
-                    and max(votes[family].values()) >= nb_votes * 0.5
-                ) or (nb_votes > len(genomes)):
-                    if family not in validated:
-                        if max(votes[family].values()) < nb_votes * 0.5:
-                            votes[family]["U"] = len(genomes)
-                            # if despite len(genomes) partionning,
-                            # an abosolute majority is not found then the families is set to undefined
-                        validated.add(family)
-
-        chunks = []
-        times_drawn = Counter()
-        for org in genomes:
-            times_drawn[org] = 0
+        families = [fam.name for fam in pangenome.gene_families]
+        rng = random.Random(seed)
+        votes = ChunkVotes(families, len(genomes), chunk_size)
+        times_drawn = Counter({genome: 0 for genome in genomes})
         min_draws = len(genomes) / chunk_size
-        while len(validated) < nb_families:
-            prev = len(chunks)  # if we've been sampling already, chunks is not empty.
-            while not all(val >= min_draws for val in times_drawn.values()):
-                # each family must be tested at least len(genomes)/chunk_size times.
-                shuffled = list(genomes)
-                random.shuffle(shuffled)  # seeded shuffle
-                while len(shuffled) > chunk_size:
-                    chunks.append(shuffled[:chunk_size])
-                    for org in chunks[-1]:
-                        times_drawn[org] += 1
-                    shuffled = shuffled[chunk_size:]
+        nb_chunks = 0
+        while not votes.done:
+            chunks = draw_chunks(genomes, chunk_size, times_drawn, min_draws, rng)
+            nb_chunks += len(chunks)
             # sliced as the pool asks for them, so one chunk is in transit at a time
             args = (
                 (
@@ -407,35 +444,32 @@ def partition(
                     max_degree_smoothing,
                     free_dispersion,
                 )
-                for chunk in chunks[prev:]
+                for chunk in chunks
             )
 
             logger.info("Launching NEM")
             with get_context("fork").Pool(processes=cpu) as p:
                 # launch partitioning
                 bar = tqdm(
-                    range(len(chunks) - prev),
+                    range(len(chunks)),
                     unit=" samples partitioned",
                     disable=disable_bar,
                 )
                 for result in p.imap_unordered(_partition_chunk_worker, args):
-                    count_votes(result)
+                    votes.add(result.partitions)
                     bar.update()
 
                 bar.close()
-                min_draws += (
-                    1  # if len(validated) < pan_size, we will want to resample more.
-                )
+                min_draws += 1  # if families are left to validate, draw more chunks
                 logger.debug(
-                    f"There are {len(validated)} validated families out of {nb_families} families."
+                    f"There are {len(votes.validated)} validated families out of {len(families)} families."
                 )
                 p.close()
                 p.join()
-        for fam, data in votes.items():
-            labels[fam] = max(data, key=data.get)
+        labels = votes.labels()
 
         logger.info(
-            f"Did {len(chunks)} partitioning with chunks of size {chunk_size} among "
+            f"Did {nb_chunks} partitioning with chunks of size {chunk_size} among "
             f"{len(genomes)} genomes in {round(time.time() - start_partitioning, 2)} seconds."
         )
     else:
