@@ -1,12 +1,42 @@
 #!/usr/bin/env python3
 
 # default libraries
-from typing import Tuple, Union
+from dataclasses import dataclass
 
 # installed libraries
-import networkx as nx
 import numpy as np
 from pynem import NEM
+
+# local libraries
+from ppanggolin.nem.nem_input import NemInput
+
+
+@dataclass
+class NemResult:
+    """Outcome of one NEM partitioning.
+
+    :param partitions: Label of each gene family: P, S<k>, S_ or C.
+    :param parameters: Centers, dispersions and proportion of each class.
+    :param log_likelihood: Log-likelihood of the fit.
+    """
+
+    partitions: dict[str, str]
+    parameters: dict[str, tuple[list[bool], list[float], float]]
+    log_likelihood: float
+
+
+@dataclass
+class KScore:
+    """Fit of NEM with k partitions, used to choose k.
+
+    :param k: Number of partitions.
+    :param log_likelihood: Log-likelihood of the fit.
+    :param entropy: Entropy of the fuzzy classification.
+    """
+
+    k: int
+    log_likelihood: float
+    entropy: float
 
 
 def _initial_parameters(k, nb_genomes):
@@ -36,32 +66,21 @@ def _initial_parameters(k, nb_genomes):
     return centers, dispersions, proportions
 
 
-def solve(
-    presence: np.ndarray,
-    graph: nx.DiGraph,
-    fam_names: list,
-    nb_genomes: int,
-    beta: float = 2.5,
-    free_dispersion: bool = False,
-    k: int = 3,
-    max_iter: int = 100,
-    scores_only: bool = False,
-) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
-    """
-    Run NEM on pre-built inputs
+def _fit(
+    nem_input: NemInput,
+    beta: float,
+    free_dispersion: bool,
+    k: int,
+    max_iter: int
+) -> NEM:
+    """Fit NEM on an input.
 
-    :param presence: (nb_families, nb_genomes) presence/absence matrix
-    :param graph: neighbourhood graph, nodes 0..nb_families-1, edges carrying `weight`
-    :param fam_names: gene-family names in row order of `presence`
-    :param nb_genomes: number of genomes
-    :param beta: spatial smoothing coefficient
-    :param free_dispersion: whether dispersion is free per genome (`skd`) or shared (`sk_`)
-    :param k: number of partitions
-    :param max_iter: maximum number of iterations
-    :param scores_only: return only the log-likelihood diagnostics
-
-    :return: partition per family, per-class parameters, log-likelihood --
-        or, with `scores_only`, (k, log-likelihood, entropy)
+    :param nem_input: Input to partition.
+    :param beta: Smoothing strength, already scaled.
+    :param free_dispersion: Free dispersion per genome (`skd`) instead of shared (`sk_`).
+    :param k: Number of partitions.
+    :param max_iter: Maximum number of iterations.
+    :return: The fitted model.
     """
     model = NEM(
         n_clusters=k,
@@ -71,22 +90,34 @@ def solve(
         proportion="pk",
         algorithm="nem",
         init="param",
-        init_params=_initial_parameters(k, nb_genomes),
+        init_params=_initial_parameters(k, nem_input.nb_genomes),
         site_update="seq",
         convergence="classification",
         tol=0.01,
         missing="ignore",
         max_iter=max_iter,
     )
-    model.fit(presence, graph=graph)
+    model.fit(nem_input.presence, graph=nem_input.graph)
+    return model
 
-    membership = model.membership_
-    log_likelihood = float(model.criteria_["M"])
 
-    if scores_only:
-        positive = membership[membership > 0]
-        entropy = float(np.sum(positive * np.log(positive)))
-        return k, log_likelihood, entropy
+def solve(
+    nem_input: NemInput,
+    beta: float = 2.5,
+    free_dispersion: bool = False,
+    k: int = 3,
+    max_iter: int = 100,
+) -> NemResult:
+    """Partition the gene families of an input.
+
+    :param nem_input: Input to partition.
+    :param beta: Smoothing strength, already scaled.
+    :param free_dispersion: Free dispersion per genome instead of shared.
+    :param k: Number of partitions.
+    :param max_iter: Maximum number of iterations.
+    :return: The partitions and the fitted parameters.
+    """
+    model = _fit(nem_input, beta, free_dispersion, k, max_iter)
 
     all_parameters = {}
     for c in range(k):
@@ -104,7 +135,7 @@ def solve(
     for i in range(1, k - 1):
         labels[i] = "S" + str(i)
     family_labels = []
-    for row in membership:
+    for row in model.membership_:
         max_prob = float(row.max())
         best = [c for c, prob in enumerate(row) if prob == max_prob]
         if len(best) > 1 or max_prob < 0.5:
@@ -112,4 +143,34 @@ def solve(
         else:
             family_labels.append(labels[best[0]])
 
-    return dict(zip(fam_names, family_labels)), all_parameters, log_likelihood
+    return NemResult(
+        partitions=dict(zip(nem_input.fam_names, family_labels)),
+        parameters=all_parameters,
+        log_likelihood=float(model.criteria_["M"]),
+    )
+
+
+def score(
+    nem_input: NemInput,
+    beta: float = 0.0,
+    free_dispersion: bool = False,
+    k: int = 3,
+    max_iter: int = 100,
+) -> KScore:
+    """Fit NEM with k partitions and report how well it fits.
+
+    :param nem_input: Input to partition.
+    :param beta: Smoothing strength, already scaled.
+    :param free_dispersion: Free dispersion per genome instead of shared.
+    :param k: Number of partitions.
+    :param max_iter: Maximum number of iterations.
+    :return: The log-likelihood and classification entropy.
+    """
+    model = _fit(nem_input, beta, free_dispersion, k, max_iter)
+    membership = model.membership_
+    positive = membership[membership > 0]
+    return KScore(
+        k=k,
+        log_likelihood=float(model.criteria_["M"]),
+        entropy=float(np.sum(positive * np.log(positive))),
+    )
