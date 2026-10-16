@@ -40,9 +40,9 @@ class KScore:
 
 
 def _initial_parameters(
-        k: int,
-        nb_genomes: int
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    k: int,
+    nb_genomes: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Build the structured starting point: class 0 persistent, class k-1 cloud.
 
     :param k: Number of partitions.

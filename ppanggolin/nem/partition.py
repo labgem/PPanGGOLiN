@@ -7,7 +7,6 @@ import math
 import os
 import random
 import time
-from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from multiprocessing import get_context
 from collections import defaultdict, Counter
