@@ -27,11 +27,17 @@ from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.nem.pynem_backend import set_threads
 import ppanggolin.nem.partition as ppp
+from ppanggolin.nem.nem_input import (
+    NemIndex,
+    build_nem_index,
+    build_nem_input,
+    subset_nem_index,
+)
 
 
 def raref_nem(
     index: int,
-    sample: ppp.NemIndex,
+    sample: NemIndex,
     beta: float = 2.5,
     sm_degree: int = 10,
     free_dispersion: bool = False,
@@ -69,7 +75,7 @@ def raref_nem(
         )
 
     if len(samp) <= chunk_size:
-        *_, edges_weight, nb_fam = nem_input = ppp.build_nem_input(sample, sm_degree)
+        *_, edges_weight, nb_fam = nem_input = build_nem_input(sample, sm_degree)
         cpt_partition = ppp.run_partitioning(
             nem_input,
             len(samp),
@@ -126,8 +132,8 @@ def raref_nem(
                         org_nb_sample[org] += 1
                     shuffled_orgs = shuffled_orgs[chunk_size:]
             for chunk in org_samples:
-                *_, edges_weight, nb_fam = nem_input = ppp.build_nem_input(
-                    ppp.subset_nem_index(sample, chunk), sm_degree
+                *_, edges_weight, nb_fam = nem_input = build_nem_input(
+                    subset_nem_index(sample, chunk), sm_degree
                 )
                 validate_family(
                     ppp.run_partitioning(
@@ -167,7 +173,7 @@ def raref_nem(
 
 
 def launch_raref_nem(
-    args: Tuple[int, ppp.NemIndex, float, int, bool, int, int, list, int]
+    args: Tuple[int, NemIndex, float, int, bool, int, int, list, int]
 ) -> Tuple[Tuple[Dict[str, int], int]]:
     """
     Launch raref_nem in multiprocessing
@@ -572,7 +578,7 @@ def make_rarefaction_curve(
         need_graph=True,
         disable_bar=disable_bar,
     )
-    nem_index = ppp.build_nem_index(pangenome)
+    nem_index = build_nem_index(pangenome)
 
     if float(pangenome.number_of_organisms) < max_sampling:
         max_sampling = pangenome.number_of_organisms
@@ -670,9 +676,7 @@ def make_rarefaction_curve(
         args = (
             (
                 index,
-                ppp.subset_nem_index(
-                    nem_index, [org.name for org in all_samples[index]]
-                ),
+                subset_nem_index(nem_index, [org.name for org in all_samples[index]]),
                 beta,
                 sm_degree,
                 free_dispersion,
