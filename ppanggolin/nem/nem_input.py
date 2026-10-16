@@ -76,19 +76,13 @@ def ordered_organisms(organisms) -> list:
     return sorted(organisms, key=lambda org: org.name)
 
 
-def build_nem_index(pangenome: Pangenome) -> NemIndex:
+def _presence_matrix(families: list, org_index: dict) -> sp.csr_matrix:
+    """Build the families x genomes presence matrix.
+
+    :param families: Gene families, one per row.
+    :param org_index: Column of each genome.
+    :return: The presence matrix.
     """
-    Precompute NEM's input for all the genomes of a pangenome
-
-    :param pangenome: Pangenome with gene families and graph
-
-    :return: the index
-    """
-    organisms = ordered_organisms(pangenome.organisms)
-    org_index = {org: i for i, org in enumerate(organisms)}
-    families = list(pangenome.gene_families)
-    fam_index = {fam: i for i, fam in enumerate(families)}
-
     nb_presences = sum(fam.number_of_organisms for fam in families)
     rows = np.empty(nb_presences, dtype=np.int32)
     cols = np.empty(nb_presences, dtype=np.int32)
@@ -98,32 +92,55 @@ def build_nem_index(pangenome: Pangenome) -> NemIndex:
             rows[pos] = i
             cols[pos] = org_index[org]
             pos += 1
-    presence = sp.csr_matrix(
+    return sp.csr_matrix(
         (np.ones(nb_presences, dtype=np.int8), (rows, cols)),
-        shape=(len(families), len(organisms)),
+        shape=(len(families), len(org_index)),
     )
-    del rows, cols
 
+
+def _coverage_matrix(
+    pangenome: Pangenome, fam_index: dict, org_index: dict
+) -> tuple[sp.csr_matrix, np.ndarray, np.ndarray]:
+    """Count the gene pairs of each edge in each genome.
+
+    :param pangenome: Pangenome with its neighbors graph.
+    :param fam_index: Row of each gene family.
+    :param org_index: Column of each genome.
+    :return: The edges x genomes counts, and the source and target row of each edge.
+    """
     nb_edges = pangenome.number_of_edges
     nb_covered = sum(edge.number_of_organisms for edge in pangenome.edges)
     src = np.empty(nb_edges, dtype=np.int32)
     tgt = np.empty(nb_edges, dtype=np.int32)
-    e_rows = np.empty(nb_covered, dtype=np.int32)
-    e_cols = np.empty(nb_covered, dtype=np.int32)
+    rows = np.empty(nb_covered, dtype=np.int32)
+    cols = np.empty(nb_covered, dtype=np.int32)
     counts = np.empty(nb_covered, dtype=np.int32)
     pos = 0
     for e, edge in enumerate(pangenome.edges):
         src[e] = fam_index[edge.source]
         tgt[e] = fam_index[edge.target]
         for org, gene_pairs in edge.get_organisms_dict().items():
-            e_rows[pos] = e
-            e_cols[pos] = org_index[org]
+            rows[pos] = e
+            cols[pos] = org_index[org]
             counts[pos] = len(gene_pairs)
             pos += 1
-    coverage = sp.csr_matrix(
-        (counts, (e_rows, e_cols)), shape=(nb_edges, len(organisms))
-    )
-    del e_rows, e_cols, counts
+    coverage = sp.csr_matrix((counts, (rows, cols)), shape=(nb_edges, len(org_index)))
+    return coverage, src, tgt
+
+
+def build_nem_index(pangenome: Pangenome) -> NemIndex:
+    """Precompute NEM's input for all the genomes of a pangenome.
+
+    :param pangenome: Pangenome with gene families and neighbors graph.
+    :return: The index.
+    """
+    organisms = ordered_organisms(pangenome.organisms)
+    org_index = {org: i for i, org in enumerate(organisms)}
+    families = list(pangenome.gene_families)
+    fam_index = {fam: i for i, fam in enumerate(families)}
+
+    presence = _presence_matrix(families, org_index)
+    coverage, src, tgt = _coverage_matrix(pangenome, fam_index, org_index)
 
     return NemIndex(
         org_names=[org.name for org in organisms],
@@ -169,23 +186,20 @@ def subset_nem_index(index: NemIndex, genomes) -> NemIndex:
     )
 
 
-def build_nem_input(index: NemIndex, max_degree_smoothing: int = 10) -> NemInput:
-    """
-    Build NEM's inputs for all the genomes of an index
+def _smoothing_graph(
+    index: NemIndex, max_degree_smoothing: int
+) -> tuple[nx.DiGraph, float]:
+    """Link each family to its neighbors, for the families NEM smooths.
 
-    :param index: index of the genomes to partition
-    :param max_degree_smoothing: maximum degree of a node included in the smoothing
-
-    :return: the dense input
+    :param index: Index of the genomes to partition.
+    :param max_degree_smoothing: Maximum degree of a family included in the smoothing.
+    :return: The graph and the total weight of its edges.
     """
     nb_families, nb_genomes = index.presence.shape
-    presence = index.presence.toarray().astype(np.float64)
-
     src, tgt = index.edge_src, index.edge_tgt
     score = np.asarray(index.coverage.sum(axis=1)).ravel() / nb_genomes
 
-    loop = src == tgt
-    other = ~loop
+    other = src != tgt
     degree = np.bincount(src, minlength=nb_families) + np.bincount(
         tgt[other], minlength=nb_families
     )
@@ -206,5 +220,20 @@ def build_nem_input(index: NemIndex, max_degree_smoothing: int = 10) -> NemInput
             np.concatenate([score[from_src], score[from_tgt]]).tolist(),
         )
     )
+    return graph, total_edges_weight / 2
 
-    return NemInput(presence, graph, index.fam_names, total_edges_weight / 2)
+
+def build_nem_input(index: NemIndex, max_degree_smoothing: int = 10) -> NemInput:
+    """Build NEM's input for all the genomes of an index.
+
+    :param index: Index of the genomes to partition.
+    :param max_degree_smoothing: Maximum degree of a family included in the smoothing.
+    :return: The dense input.
+    """
+    graph, edges_weight = _smoothing_graph(index, max_degree_smoothing)
+    return NemInput(
+        presence=index.presence.toarray().astype(np.float64),
+        graph=graph,
+        fam_names=index.fam_names,
+        edges_weight=edges_weight,
+    )
