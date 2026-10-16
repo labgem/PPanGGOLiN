@@ -15,7 +15,7 @@ from typing import Union, Tuple, Dict
 # installed libraries
 from tqdm import tqdm
 import gmpy2
-import numpy
+import numpy as np
 from pandas import Series, read_csv
 import plotly.offline as out_plotly
 import plotly.graph_objs as go
@@ -26,7 +26,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.nem.model import set_threads
-import ppanggolin.nem.partition as ppp
+from ppanggolin.nem.partition import evaluate_nb_partitions, run_partitioning
 from ppanggolin.nem.nem_input import (
     NemIndex,
     build_nem_index,
@@ -35,61 +35,61 @@ from ppanggolin.nem.nem_input import (
 )
 
 
-def raref_nem(
-    index: int,
+def partition_sample(
+    sample_id: int,
     sample: NemIndex,
     beta: float = 2.5,
-    sm_degree: int = 10,
+    max_degree_smoothing: int = 10,
     free_dispersion: bool = False,
     chunk_size: int = 500,
-    kval: int = -1,
+    k: int = -1,
     krange: list = None,
     seed: int = 42,
 ) -> Tuple[Dict[str, int], int]:
     """
 
-    :param index: Index of the sample group organisms
+    :param sample_id: Index of the sample group organisms
     :param sample: NEM index of the sample group organisms
     :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
-    :param sm_degree:  Maximum degree of the nodes to be included in the smoothing process.
+    :param max_degree_smoothing:  Maximum degree of the nodes to be included in the smoothing process.
     :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
     :param chunk_size: Size of the chunks when performing partitioning using chunks of organisms.
-    :param kval: Number of partitions to use
+    :param k: Number of partitions to use
     :param krange: Range of K values to test when detecting K automatically.
     :param seed: seed used to generate random numbers
 
     :return: Count of each partition and parameters for the given sample index
     """
-    samp = set(sample.org_names)
+    genomes = set(sample.org_names)
 
-    kmm = [3, 20] if krange is None else krange
+    krange = [3, 20] if krange is None else krange
 
-    if kval < 3:
-        kval = ppp.evaluate_nb_partitions(
+    if k < 3:
+        k = evaluate_nb_partitions(
             index=sample,
-            sm_degree=sm_degree,
+            max_degree_smoothing=max_degree_smoothing,
             free_dispersion=free_dispersion,
             chunk_size=chunk_size,
-            krange=kmm,
+            krange=krange,
             seed=seed,
         )
 
-    if len(samp) <= chunk_size:
-        *_, edges_weight, nb_fam = nem_input = build_nem_input(sample, sm_degree)
-        cpt_partition = ppp.run_partitioning(
+    if len(genomes) <= chunk_size:
+        *_, edges_weight, nb_families = nem_input = build_nem_input(
+            sample, max_degree_smoothing
+        )
+        votes = run_partitioning(
             nem_input,
-            len(samp),
-            beta * (nb_fam / edges_weight),
+            len(genomes),
+            beta * (nb_families / edges_weight),
             free_dispersion,
-            kval=kval,
+            k=k,
         )[0]
     else:  # going to need multiple partitioning for this sample...
-        cpt_partition = {
-            fam: {"P": 0, "S": 0, "C": 0, "U": 0} for fam in sample.fam_names
-        }
+        votes = {fam: {"P": 0, "S": 0, "C": 0, "U": 0} for fam in sample.fam_names}
         validated = set()
 
-        def validate_family(
+        def count_votes(
             result: Union[
                 Tuple[dict, None, None],
                 Tuple[int, float, float],
@@ -101,88 +101,88 @@ def raref_nem(
 
             :param result: Partitioning results
             """
-            for node, nem_class in result[0].items():
-                cpt_partition[node][nem_class[0]] += 1
-                sum_partitioning = sum(cpt_partition[node].values())
+            for family, label in result[0].items():
+                votes[family][label[0]] += 1
+                nb_votes = sum(votes[family].values())
                 if (
-                    sum_partitioning > len(samp) / chunk_size
-                    and max(cpt_partition[node].values()) >= sum_partitioning * 0.5
-                ) or (sum_partitioning > len(samp)):
-                    if node not in validated:
-                        if max(cpt_partition[node].values()) < sum_partitioning * 0.5:
-                            cpt_partition[node]["U"] = len(samp)
-                        validated.add(node)
+                    nb_votes > len(genomes) / chunk_size
+                    and max(votes[family].values()) >= nb_votes * 0.5
+                ) or (nb_votes > len(genomes)):
+                    if family not in validated:
+                        if max(votes[family].values()) < nb_votes * 0.5:
+                            votes[family]["U"] = len(genomes)
+                        validated.add(family)
 
-        rng = random.Random(f"{seed}-{index}")
-        org_nb_sample = Counter()
-        for org in samp:
-            org_nb_sample[org] = 0
-        condition = len(samp) / chunk_size
+        rng = random.Random(f"{seed}-{sample_id}")
+        times_drawn = Counter()
+        for org in genomes:
+            times_drawn[org] = 0
+        min_draws = len(genomes) / chunk_size
 
-        while len(validated) < len(cpt_partition):
-            org_samples = []
+        while len(validated) < len(votes):
+            chunks = []
 
-            while not all(val >= condition for val in org_nb_sample.values()):
+            while not all(val >= min_draws for val in times_drawn.values()):
                 # each family must be tested at least len(select_organisms)/chunk_size times.
-                shuffled_orgs = sorted(samp)
-                rng.shuffle(shuffled_orgs)
-                while len(shuffled_orgs) > chunk_size:
-                    org_samples.append(set(shuffled_orgs[:chunk_size]))
-                    for org in org_samples[-1]:
-                        org_nb_sample[org] += 1
-                    shuffled_orgs = shuffled_orgs[chunk_size:]
-            for chunk in org_samples:
-                *_, edges_weight, nb_fam = nem_input = build_nem_input(
-                    subset_nem_index(sample, chunk), sm_degree
+                shuffled = sorted(genomes)
+                rng.shuffle(shuffled)
+                while len(shuffled) > chunk_size:
+                    chunks.append(set(shuffled[:chunk_size]))
+                    for org in chunks[-1]:
+                        times_drawn[org] += 1
+                    shuffled = shuffled[chunk_size:]
+            for chunk in chunks:
+                *_, edges_weight, nb_families = nem_input = build_nem_input(
+                    subset_nem_index(sample, chunk), max_degree_smoothing
                 )
-                validate_family(
-                    ppp.run_partitioning(
+                count_votes(
+                    run_partitioning(
                         nem_input,
                         len(chunk),
-                        beta * (nb_fam / edges_weight),
+                        beta * (nb_families / edges_weight),
                         free_dispersion,
-                        kval=kval,
+                        k=k,
                     )
                 )
-            condition += 1  # if families are left to validate, draw more chunks
-    if len(cpt_partition) == 0:
+            min_draws += 1  # if families are left to validate, draw more chunks
+    if len(votes) == 0:
         counts = {
             "persistent": "NA",
             "shell": "NA",
             "cloud": "NA",
             "undefined": "NA",
-            "K": kval,
+            "K": k,
         }
     else:
-        counts = {"persistent": 0, "shell": 0, "cloud": 0, "undefined": 0, "K": kval}
+        counts = {"persistent": 0, "shell": 0, "cloud": 0, "undefined": 0, "K": k}
 
-        for val in cpt_partition.values():
+        for val in votes.values():
             if isinstance(val, str):
-                part = val
+                label = val
             else:
-                part = max(val, key=val.get)
-            if part.startswith("P"):
+                label = max(val, key=val.get)
+            if label.startswith("P"):
                 counts["persistent"] += 1
-            elif part.startswith("C"):
+            elif label.startswith("C"):
                 counts["cloud"] += 1
-            elif part.startswith("S"):
+            elif label.startswith("S"):
                 counts["shell"] += 1
             else:
                 counts["undefined"] += 1
-    return counts, index
+    return counts, sample_id
 
 
-def launch_raref_nem(
+def _partition_sample_worker(
     args: Tuple[int, NemIndex, float, int, bool, int, int, list, int]
 ) -> Tuple[Tuple[Dict[str, int], int]]:
     """
-    Launch raref_nem in multiprocessing
+    Launch partition_sample in multiprocessing
 
-    :param args: {index: int, sample: NemIndex, beta: float, sm_degree: int, free_dispersion: bool,
-                  chunk_size: int, kval: int, krange: list, seed: int}
+    :param args: {index: int, sample: NemIndex, beta: float, max_degree_smoothing: int, free_dispersion: bool,
+                  chunk_size: int, k: int, krange: list, seed: int}
     :return: Count of each partition and parameters for the given sample index
     """
-    return raref_nem(*args)
+    return partition_sample(*args)
 
 
 def draw_curve(output: Path, data: list, max_sampling: int = 10):
@@ -242,9 +242,7 @@ def draw_curve(output: Path, data: list, max_sampling: int = 10):
         return p_kappa * n**p_gamma
 
     def poly_area(p_x: list, p_y: list) -> float:
-        return 0.5 * numpy.abs(
-            numpy.dot(p_x, numpy.roll(p_y, 1)) - numpy.dot(p_y, numpy.roll(p_x, 1))
-        )
+        return 0.5 * np.abs(np.dot(p_x, np.roll(p_y, 1)) - np.dot(p_y, np.roll(p_x, 1)))
 
     annotations = []
     traces = []
@@ -266,7 +264,7 @@ def draw_curve(output: Path, data: list, max_sampling: int = 10):
     ]:
         percentiles_75 = Series(
             {
-                i: numpy.nanpercentile(
+                i: np.nanpercentile(
                     data_raref[data_raref["genomes_count"] == i][partition], 75
                 )
                 for i in range(1, max_sampling + 1)
@@ -274,7 +272,7 @@ def draw_curve(output: Path, data: list, max_sampling: int = 10):
         ).dropna()
         percentiles_25 = Series(
             {
-                i: numpy.nanpercentile(
+                i: np.nanpercentile(
                     data_raref[data_raref["genomes_count"] == i][partition], 25
                 )
                 for i in range(1, max_sampling + 1)
@@ -282,29 +280,29 @@ def draw_curve(output: Path, data: list, max_sampling: int = 10):
         ).dropna()
         mins = Series(
             {
-                i: numpy.min(data_raref[data_raref["genomes_count"] == i][partition])
+                i: np.min(data_raref[data_raref["genomes_count"] == i][partition])
                 for i in range(1, max_sampling + 1)
             }
         ).dropna()
         maxs = Series(
             {
-                i: numpy.max(data_raref[data_raref["genomes_count"] == i][partition])
+                i: np.max(data_raref[data_raref["genomes_count"] == i][partition])
                 for i in range(1, max_sampling + 1)
             }
         ).dropna()
         medians = Series(
             {
-                i: numpy.median(data_raref[data_raref["genomes_count"] == i][partition])
+                i: np.median(data_raref[data_raref["genomes_count"] == i][partition])
                 for i in range(1, max_sampling + 1)
             }
         ).dropna()
         means = Series(
             {
-                i: numpy.mean(data_raref[data_raref["genomes_count"] == i][partition])
+                i: np.mean(data_raref[data_raref["genomes_count"] == i][partition])
                 for i in range(1, max_sampling + 1)
             }
         ).dropna()
-        initial_kappa_gamma = numpy.array([0.0, 0.0])
+        initial_kappa_gamma = np.array([0.0, 0.0])
         x = percentiles_25.index.tolist()
         x += list(reversed(percentiles_25.index.tolist()))
         area_iqr = poly_area(x, percentiles_25.tolist() + percentiles_75.tolist())
@@ -331,13 +329,13 @@ def draw_curve(output: Path, data: list, max_sampling: int = 10):
                 initial_kappa_gamma,
             )
             kappa, gamma = res[0]
-            error_k, error_g = numpy.sqrt(
-                numpy.diag(res[1])
+            error_k, error_g = np.sqrt(
+                np.diag(res[1])
             )  # to calculate the fitting error.
             # The variance of parameters are the diagonal elements of the variance-co variance matrix,
             # and the standard error is the square root of it. source :
             # https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
-            if numpy.isinf(error_k) and numpy.isinf(error_g):
+            if np.isinf(error_k) and np.isinf(error_g):
                 params_file.write(
                     ",".join([partition, "NA", "NA", "NA", "NA", str(area_iqr)]) + "\n"
                 )
@@ -355,21 +353,21 @@ def draw_curve(output: Path, data: list, max_sampling: int = 10):
                     )
                     + "\n"
                 )
-                regression = numpy.apply_along_axis(
+                regression = np.apply_along_axis(
                     heap_law,
                     0,
                     range(nb_org_min_fitting + 1, max_sampling + 1),
                     kappa,
                     gamma,
                 )
-                regression_sd_top = numpy.apply_along_axis(
+                regression_sd_top = np.apply_along_axis(
                     heap_law,
                     0,
                     range(nb_org_min_fitting + 1, max_sampling + 1),
                     kappa - error_k,
                     gamma + error_g,
                 )
-                regression_sd_bottom = numpy.apply_along_axis(
+                regression_sd_bottom = np.apply_along_axis(
                     heap_law,
                     0,
                     range(nb_org_min_fitting + 1, max_sampling + 1),
@@ -525,14 +523,14 @@ def make_rarefaction_curve(
     depth: int = 30,
     min_sampling: int = 1,
     max_sampling: int = 100,
-    sm_degree: int = 10,
+    max_degree_smoothing: int = 10,
     free_dispersion: bool = False,
     chunk_size: int = 500,
-    kval: int = -1,
+    k: int = -1,
     krange: list = None,
     cpu: int = 1,
     seed: int = 42,
-    kestimate: bool = False,
+    reestimate_k: bool = False,
     soft_core: float = 0.95,
     disable_bar: bool = False,
 ):
@@ -545,14 +543,14 @@ def make_rarefaction_curve(
     :param depth: Number of samplings at each sampling point
     :param min_sampling: Minimum number of organisms in a sample
     :param max_sampling: Maximum number of organisms in a sample
-    :param sm_degree: Maximum degree of the nodes to be included in the smoothing process.
+    :param max_degree_smoothing: Maximum degree of the nodes to be included in the smoothing process.
     :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
     :param chunk_size: Size of the chunks when performing partitioning using chunks of organisms.
-    :param kval: Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.
+    :param k: Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.
     :param krange: Range of K values to test when detecting K automatically.
     :param cpu: Number of available core
     :param seed: seed used to generate random numbers
-    :param kestimate: recompute the number of partitions for each sample between the values provided by krange
+    :param reestimate_k: recompute the number of partitions for each sample between the values provided by krange
     :param soft_core: Soft core threshold
     :param disable_bar: Disable progress bar
     """
@@ -585,19 +583,17 @@ def make_rarefaction_curve(
     else:
         max_sampling = int(max_sampling)
 
-    if kval < 3 and kestimate is False:  # estimate K once and for all.
+    if k < 3 and reestimate_k is False:  # estimate K once and for all.
         try:
-            kval = pangenome.parameters["partition"]["# final nb of partitions"]
-            logging.getLogger("PPanGGOLiN").info(
-                f"Reuse the number of partitions {kval}"
-            )
+            k = pangenome.parameters["partition"]["# final nb of partitions"]
+            logging.getLogger("PPanGGOLiN").info(f"Reuse the number of partitions {k}")
         except KeyError:
             logging.getLogger("PPanGGOLiN").info(
                 "Estimating the number of partitions..."
             )
-            kval = ppp.evaluate_nb_partitions(
+            k = evaluate_nb_partitions(
                 index=nem_index,
-                sm_degree=sm_degree,
+                max_degree_smoothing=max_degree_smoothing,
                 free_dispersion=free_dispersion,
                 chunk_size=chunk_size,
                 krange=krange,
@@ -605,59 +601,59 @@ def make_rarefaction_curve(
                 seed=seed,
             )
             logging.getLogger("PPanGGOLiN").info(
-                f"The number of partitions has been evaluated at {kval}"
+                f"The number of partitions has been evaluated at {k}"
             )
 
     logging.getLogger("PPanGGOLiN").info("Extracting samples ...")
     random.seed(seed)
-    all_samples = []
+    samples = []
     for i in range(min_sampling, max_sampling):  # each point
         for _ in range(depth):  # number of samples per points
-            all_samples.append(set(random.sample(list(pangenome.organisms), i + 1)))
+            samples.append(set(random.sample(list(pangenome.organisms), i + 1)))
     logging.getLogger("PPanGGOLiN").info(
-        f"Done sampling genomes in the pan, there are {len(all_samples)} samples"
+        f"Done sampling genomes in the pan, there are {len(samples)} samples"
     )
-    samp_nb_per_part = []
+    rows = []
 
     logging.getLogger("PPanGGOLiN").info("Computing bitarrays for each family...")
-    index_org = pangenome.compute_family_bitarrays()
+    org_bit = pangenome.compute_family_bitarrays()
     logging.getLogger("PPanGGOLiN").info(
         "Done computing bitarrays. Comparing them to get exact and soft core stats "
-        f"for {len(all_samples)} samples..."
+        f"for {len(samples)} samples..."
     )
     bar = tqdm(
-        range(len(all_samples) * pangenome.number_of_gene_families),
+        range(len(samples) * pangenome.number_of_gene_families),
         unit="gene family",
         disable=disable_bar,
     )
-    for samp in all_samples:
+    for sample in samples:
         # make the sample's organism bitarray.
-        samp_bitarray = gmpy2.xmpz()  # pylint: disable=no-member
-        for org in samp:
-            samp_bitarray[index_org[org]] = 1
+        sample_bitarray = gmpy2.xmpz()  # pylint: disable=no-member
+        for org in sample:
+            sample_bitarray[org_bit[org]] = 1
 
-        part = Counter()
-        part["soft_core"] = 0
-        part["exact_core"] = 0
-        part["exact_accessory"] = 0
-        part["soft_accessory"] = 0
+        counts = Counter()
+        counts["soft_core"] = 0
+        counts["exact_core"] = 0
+        counts["exact_accessory"] = 0
+        counts["soft_accessory"] = 0
         for fam in pangenome.gene_families:
-            nb_common_org = gmpy2.popcount(
-                fam.bitarray & samp_bitarray
+            nb_common = gmpy2.popcount(
+                fam.bitarray & sample_bitarray
             )  # pylint: disable=no-member
-            part["nborgs"] = len(samp)
-            if nb_common_org != 0:  # in that case the node 'does not exist'
-                if nb_common_org == len(samp):
-                    part["exact_core"] += 1
+            counts["nborgs"] = len(sample)
+            if nb_common != 0:  # in that case the node 'does not exist'
+                if nb_common == len(sample):
+                    counts["exact_core"] += 1
                 else:
-                    part["exact_accessory"] += 1
+                    counts["exact_accessory"] += 1
 
-                if float(nb_common_org) >= len(samp) * soft_core:
-                    part["soft_core"] += 1
+                if float(nb_common) >= len(sample) * soft_core:
+                    counts["soft_core"] += 1
                 else:
-                    part["soft_accessory"] += 1
+                    counts["soft_accessory"] += 1
             bar.update()
-        samp_nb_per_part.append(part)
+        rows.append(counts)
     bar.close()
     # done with frequency of each family for each sample.
 
@@ -666,35 +662,33 @@ def make_rarefaction_curve(
     ) as p:
         # launch partitioning
         logging.getLogger("PPanGGOLiN").info(" Partitioning all samples...")
-        bar = tqdm(
-            range(len(all_samples)), unit="samples partitioned", disable=disable_bar
-        )
-        order = list(range(len(all_samples)))
+        bar = tqdm(range(len(samples)), unit="samples partitioned", disable=disable_bar)
+        order = list(range(len(samples)))
         random.shuffle(
             order
         )  # shuffling the processing so that the progress bar is closer to reality.
         args = (
             (
-                index,
-                subset_nem_index(nem_index, [org.name for org in all_samples[index]]),
+                sample_id,
+                subset_nem_index(nem_index, [org.name for org in samples[sample_id]]),
                 beta,
-                sm_degree,
+                max_degree_smoothing,
                 free_dispersion,
                 chunk_size,
-                kval,
+                k,
                 krange,
                 seed,
             )
-            for index in order
+            for sample_id in order
         )
-        for result in p.imap_unordered(launch_raref_nem, args):
-            samp_nb_per_part[result[1]] = {**result[0], **samp_nb_per_part[result[1]]}
+        for result in p.imap_unordered(_partition_sample_worker, args):
+            rows[result[1]] = {**result[0], **rows[result[1]]}
             bar.update()
     bar.close()
 
     logging.getLogger("PPanGGOLiN").info("Done  partitioning everything")
     warnings.filterwarnings("ignore")
-    draw_curve(output, samp_nb_per_part, max_sampling)
+    draw_curve(output, rows, max_sampling)
     warnings.resetwarnings()
     logging.getLogger("PPanGGOLiN").info("Done making the rarefaction curves")
 
@@ -715,14 +709,14 @@ def launch(args: argparse.Namespace):
         depth=args.depth,
         min_sampling=args.min,
         max_sampling=args.max,
-        sm_degree=args.max_degree_smoothing,
+        max_degree_smoothing=args.max_degree_smoothing,
         free_dispersion=args.free_dispersion,
         chunk_size=args.chunk_size,
-        kval=args.nb_of_partitions,
+        k=args.nb_of_partitions,
         krange=args.krange,
         cpu=args.cpu,
         seed=args.seed,
-        kestimate=args.reestimate_K,
+        reestimate_k=args.reestimate_K,
         soft_core=args.soft_core,
         disable_bar=args.disable_prog_bar,
     )
