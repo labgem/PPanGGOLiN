@@ -29,102 +29,105 @@ from ppanggolin.nem.nem_input import (
     build_nem_input,
     subset_nem_index,
 )
+from ppanggolin.errors import AlreadyComputedError, PartitioningError
 
 logger = logging.getLogger("PPanGGOLiN")
 
 
 def run_partitioning(
     nem_input: tuple,
-    nb_org: int,
+    nb_genomes: int,
     beta: float = 2.5,
     free_dispersion: bool = False,
-    kval: int = 3,
-    itermax: int = 100,
-    just_log_likelihood: bool = False,
+    k: int = 3,
+    max_iter: int = 100,
+    scores_only: bool = False,
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
     Run NEM on inputs built by `build_nem_input`
 
-    :param nem_input: (presence, graph, index_fam, edges_weight, nb_fam)
-    :param nb_org: Number of organisms
+    :param nem_input: (presence, graph, fam_names, edges_weight, nb_families)
+    :param nb_genomes: Number of organisms
     :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
     :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
-    :param kval: Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.
-    :param itermax: Maximum iteration to compute partitioning
-    :param just_log_likelihood: Return only nem parameter result
+    :param k: Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.
+    :param max_iter: Maximum iteration to compute partitioning
+    :param scores_only: Return only nem parameter result
 
     :return: Nem parameters and if not just log likelihood the families associated to partition
     """
     logger.debug("run_partitioning...")
-    presence, graph, index_fam, _, _ = nem_input
+    presence, graph, fam_names, _, _ = nem_input
     return solve(
         presence,
         graph,
-        index_fam,
-        nb_org,
+        fam_names,
+        nb_genomes,
         beta=beta,
         free_dispersion=free_dispersion,
-        kval=kval,
-        itermax=itermax,
-        just_log_likelihood=just_log_likelihood,
+        k=k,
+        max_iter=max_iter,
+        scores_only=scores_only,
     )
 
 
-def nem_single(
+def _score_k_worker(
     args: Tuple[NemIndex, int, int, float, bool, int, int, bool]
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
     Allow to run partitioning in multiprocessing to evaluate partition number
 
-    :param args: {chunk: NemIndex, sm_degree: int, nb_org: int, beta: float, free_dispersion: bool,
-                  kval: int, itermax: int, just_log_likelihood: bool}
+    :param args: {chunk: NemIndex, max_degree_smoothing: int, nb_genomes: int, beta: float, free_dispersion: bool,
+                  k: int, max_iter: int, scores_only: bool}
     :return: Result of run partitioning
     """
-    chunk, sm_degree, *nem_args = args
-    return run_partitioning(build_nem_input(chunk, sm_degree), *nem_args)
+    chunk, max_degree_smoothing, *nem_args = args
+    return run_partitioning(build_nem_input(chunk, max_degree_smoothing), *nem_args)
 
 
-def partition_nem(
+def partition_chunk(
     chunk: NemIndex,
-    kval: int,
+    k: int,
     beta: float = 2.5,
-    sm_degree: int = 10,
+    max_degree_smoothing: int = 10,
     free_dispersion: bool = False,
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
 
     :param chunk: NEM index of the sample group
-    :param kval: Number of partitions to use
+    :param k: Number of partitions to use
     :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
-    :param sm_degree:  Maximum degree of the nodes to be included in the smoothing process.
+    :param max_degree_smoothing:  Maximum degree of the nodes to be included in the smoothing process.
     :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
     :return:
     """
-    *_, edges_weight, nb_fam = nem_input = build_nem_input(chunk, sm_degree)
+    *_, edges_weight, nb_families = nem_input = build_nem_input(
+        chunk, max_degree_smoothing
+    )
     return run_partitioning(
         nem_input,
         len(chunk.org_names),
-        beta * (nb_fam / edges_weight),
+        beta * (nb_families / edges_weight),
         free_dispersion,
-        kval=kval,
+        k=k,
     )
 
 
-def nem_samples(
+def _partition_chunk_worker(
     pack: tuple,
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """run partitioning
-    :param pack: {chunk: NemIndex, kval: int, beta: float, sm_degree: int, free_dispersion: bool}
+    :param pack: {chunk: NemIndex, k: int, beta: float, max_degree_smoothing: int, free_dispersion: bool}
 
     :return:
     """
-    return partition_nem(*pack)
+    return partition_chunk(*pack)
 
 
 def evaluate_nb_partitions(
     index: NemIndex,
     output: Path = None,
-    sm_degree: int = 10,
+    max_degree_smoothing: int = 10,
     free_dispersion: bool = False,
     chunk_size: int = 500,
     krange: list = None,
@@ -139,7 +142,7 @@ def evaluate_nb_partitions(
 
     :param index: NEM index of the genomes to evaluate K on
     :param output: output directory path to draw ICL
-    :param sm_degree: Maximum degree of the nodes to be included in the smoothing process.
+    :param max_degree_smoothing: Maximum degree of the nodes to be included in the smoothing process.
     :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
     :param chunk_size: Size of the chunks when performing partitioning using chunks of organisms.
     :param krange: Range of K values to test when detecting K automatically.
@@ -153,51 +156,51 @@ def evaluate_nb_partitions(
     """
 
     random.seed(seed)  # Seeded before forking
-    select_organisms = index.org_names
-    if len(select_organisms) > chunk_size:
-        select_organisms = random.sample(select_organisms, chunk_size)
-        index = subset_nem_index(index, select_organisms)
+    genomes = index.org_names
+    if len(genomes) > chunk_size:
+        genomes = random.sample(genomes, chunk_size)
+        index = subset_nem_index(index, genomes)
 
-    nb_fam = len(index.fam_names)
+    nb_families = len(index.fam_names)
     max_icl_k = 0
-    nem_args = [
-        (len(select_organisms), 0, free_dispersion, k, 10, True)
+    # follow order run_partitionning args
+    k_args = [
+        (len(genomes), 0, free_dispersion, k, 10, True)
         for k in range(krange[0] - 1, krange[1] + 1)
     ]
-    all_log_likelihood = []
+    k_scores = []
 
     if cpu > 1:
         bar = tqdm(
-            range(len(nem_args)),
+            range(len(k_args)),
             unit="Number of partitions",
             disable=disable_bar,
         )
         with get_context("fork").Pool(processes=cpu) as p:
             for result in p.imap_unordered(
-                nem_single, ((index, sm_degree, *arguments) for arguments in nem_args)
+                _score_k_worker,
+                ((index, max_degree_smoothing, *arguments) for arguments in k_args),
             ):
-                all_log_likelihood.append(result)
+                k_scores.append(result)
                 bar.update()
             p.close()
             p.join()
         bar.close()
     else:  # for the case where it is called in a daemonic subprocess with a single cpu
-        nem_input = build_nem_input(index, sm_degree)
-        for arguments in nem_args:
-            all_log_likelihood.append(run_partitioning(nem_input, *arguments))
+        nem_input = build_nem_input(index, max_degree_smoothing)
+        for arguments in k_args:
+            k_scores.append(run_partitioning(nem_input, *arguments))
 
     all_bics = defaultdict(float)
     all_icls = defaultdict(float)
     all_lls = defaultdict(float)
-    for k_candidate, log_likelihood, entropy in all_log_likelihood:
+    for k_candidate, log_likelihood, entropy in k_scores:
         if log_likelihood is not None:
             nb_params = k_candidate * (
-                len(select_organisms)
-                + 1
-                + (len(select_organisms) if free_dispersion else 1)
+                len(genomes) + 1 + (len(genomes) if free_dispersion else 1)
             )
             all_bics[k_candidate] = log_likelihood - 0.5 * (
-                math.log(nb_params) * nb_fam
+                math.log(nb_params) * nb_families
             )  # Calculate BIC
             all_icls[k_candidate] = all_bics[k_candidate] - entropy
             all_lls[k_candidate] = log_likelihood
@@ -309,10 +312,10 @@ def partition(
     pangenome: Pangenome,
     output: Path = None,
     beta: float = 2.5,
-    sm_degree: int = 10,
+    max_degree_smoothing: int = 10,
     free_dispersion: bool = False,
     chunk_size: int = 500,
-    kval: int = -1,
+    k: int = -1,
     krange: list = None,
     icl_margin: float = 0.05,
     draw_icl: bool = False,
@@ -327,10 +330,10 @@ def partition(
     :param pangenome: Pangenome containing GeneFamilies to align with sequence set
     :param output: output directory path to draw ICL
     :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
-    :param sm_degree: Maximum degree of the nodes to be included in the smoothing process.
+    :param max_degree_smoothing: Maximum degree of the nodes to be included in the smoothing process.
     :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
-    :param chunk_size: Size of the chunks when performing partitioning using chunks of organisms.
-    :param kval: Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.
+    :param chunk_size: Size of the chunks when performing partitioning using chunks of genomes.
+    :param k: Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.
     :param krange: Range of K values to test when detecting K automatically.
     :param icl_margin: margin use to select the lowest K in maximizing ICL
     :param draw_icl: draw the ICL curve for all the tested K values.
@@ -339,7 +342,7 @@ def partition(
     :param force: Allow to force write on Pangenome file
     :param disable_bar: Disable progress bar
     """
-    kmm = [3, 20] if krange is None else krange
+    krange = [3, 20] if krange is None else krange
     if draw_icl and output is None:
         raise ValueError(
             "Combination of option impossible: "
@@ -354,151 +357,153 @@ def partition(
         disable_bar=disable_bar,
     )
     index = build_nem_index(pangenome)
-    organisms = index.org_names
+    genomes = index.org_names
 
-    if len(organisms) <= 10:
+    if len(genomes) <= 10:
         logger.warning(
-            f"The number of selected genomes is too low ({len(organisms)} "
+            f"The number of selected genomes is too low ({len(genomes)} "
             f"genomes used) to robustly partition the graph"
         )
 
     pangenome.parameters["partition"] = {}
     pangenome.parameters["partition"]["beta"] = beta
-    pangenome.parameters["partition"]["max_degree_smoothing"] = sm_degree
+    pangenome.parameters["partition"]["max_degree_smoothing"] = max_degree_smoothing
     pangenome.parameters["partition"]["free_dispersion"] = free_dispersion
     pangenome.parameters["partition"]["ICL_margin"] = icl_margin
     pangenome.parameters["partition"]["seed"] = seed
-    if len(organisms) > chunk_size:
+    if len(genomes) > chunk_size:
         pangenome.parameters["partition"]["chunk_size"] = chunk_size
     pangenome.parameters["partition"]["# computed nb of partitions"] = False
 
     # the K value initially given by the user
-    pangenome.parameters["partition"]["nb_of_partitions"] = kval
-    if kval < 2:
+    pangenome.parameters["partition"]["nb_of_partitions"] = k
+    if k < 2:
         pangenome.parameters["partition"]["# computed nb of partitions"] = True
         logger.info("Estimating the optimal number of partitions...")
-        kval = evaluate_nb_partitions(
+        k = evaluate_nb_partitions(
             index,
             output,
-            sm_degree,
+            max_degree_smoothing,
             free_dispersion,
             chunk_size,
-            kmm,
+            krange,
             icl_margin,
             draw_icl,
             cpu,
             seed,
             disable_bar,
         )
-        logger.info(f"The number of partitions has been evaluated at {kval}")
+        logger.info(f"The number of partitions has been evaluated at {k}")
 
-    pangenome.parameters["partition"]["# final nb of partitions"] = kval
-    pangenome.parameters["partition"]["krange"] = kmm
+    pangenome.parameters["partition"]["# final nb of partitions"] = k
+    pangenome.parameters["partition"]["krange"] = krange
 
     partitioning_results = {}
 
     families = set()
-    cpt_partition = {}
+    votes = {}
     random.seed(seed)
 
     for fam in pangenome.gene_families:
         families.add(fam)
-        if chunk_size < len(organisms):
-            cpt_partition[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
+        if chunk_size < len(genomes):
+            votes[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
 
     start_partitioning = time.time()
     logger.info("Partitioning...")
-    pansize = len(families)
-    if chunk_size < len(organisms):
+    nb_families = len(families)
+    if chunk_size < len(genomes):
         validated = set()
 
-        def validate_family(res):
+        def count_votes(result):
             """
             Validate partition assignation to families
 
-            :param res: Partitioning results
+            :param result: Partitioning results
             """
-            for node, nem_class in res[0].items():
-                cpt_partition[node][nem_class[0]] += 1
-                sum_partionning = sum(cpt_partition[node].values())
+            for family, label in result[0].items():
+                votes[family][label[0]] += 1
+                nb_votes = sum(votes[family].values())
                 if (
-                    sum_partionning > len(organisms) / chunk_size
-                    and max(cpt_partition[node].values()) >= sum_partionning * 0.5
-                ) or (sum_partionning > len(organisms)):
-                    if node not in validated:
-                        if max(cpt_partition[node].values()) < sum_partionning * 0.5:
-                            cpt_partition[node]["U"] = len(organisms)
-                            # if despite len(select_organisms) partionning,
+                    nb_votes > len(genomes) / chunk_size
+                    and max(votes[family].values()) >= nb_votes * 0.5
+                ) or (nb_votes > len(genomes)):
+                    if family not in validated:
+                        if max(votes[family].values()) < nb_votes * 0.5:
+                            votes[family]["U"] = len(genomes)
+                            # if despite len(genomes) partionning,
                             # an abosolute majority is not found then the families is set to undefined
-                        validated.add(node)
+                        validated.add(family)
 
-        samples = []
-        org_nb_sample = Counter()
-        for org in organisms:
-            org_nb_sample[org] = 0
-        condition = len(organisms) / chunk_size
-        while len(validated) < pansize:
-            prev = len(samples)  # if we've been sampling already, samples is not empty.
-            while not all(val >= condition for val in org_nb_sample.values()):
-                # each family must be tested at least len(select_organisms)/chunk_size times.
-                shuffled_orgs = list(organisms)
-                random.shuffle(shuffled_orgs)  # seeded shuffle
-                while len(shuffled_orgs) > chunk_size:
-                    samples.append(shuffled_orgs[:chunk_size])
-                    for org in samples[-1]:
-                        org_nb_sample[org] += 1
-                    shuffled_orgs = shuffled_orgs[chunk_size:]
+        chunks = []
+        times_drawn = Counter()
+        for org in genomes:
+            times_drawn[org] = 0
+        min_draws = len(genomes) / chunk_size
+        while len(validated) < nb_families:
+            prev = len(chunks)  # if we've been sampling already, chunks is not empty.
+            while not all(val >= min_draws for val in times_drawn.values()):
+                # each family must be tested at least len(genomes)/chunk_size times.
+                shuffled = list(genomes)
+                random.shuffle(shuffled)  # seeded shuffle
+                while len(shuffled) > chunk_size:
+                    chunks.append(shuffled[:chunk_size])
+                    for org in chunks[-1]:
+                        times_drawn[org] += 1
+                    shuffled = shuffled[chunk_size:]
             # sliced as the pool asks for them, so one chunk is in transit at a time
             args = (
                 (
-                    subset_nem_index(index, samp),
-                    kval,
+                    subset_nem_index(index, chunk),
+                    k,
                     beta,
-                    sm_degree,
+                    max_degree_smoothing,
                     free_dispersion,
                 )
-                for samp in samples[prev:]
+                for chunk in chunks[prev:]
             )
 
             logger.info("Launching NEM")
             with get_context("fork").Pool(processes=cpu) as p:
                 # launch partitioning
                 bar = tqdm(
-                    range(len(samples) - prev),
+                    range(len(chunks) - prev),
                     unit=" samples partitioned",
                     disable=disable_bar,
                 )
-                for result in p.imap_unordered(nem_samples, args):
-                    validate_family(result)
+                for result in p.imap_unordered(_partition_chunk_worker, args):
+                    count_votes(result)
                     bar.update()
 
                 bar.close()
-                condition += (
+                min_draws += (
                     1  # if len(validated) < pan_size, we will want to resample more.
                 )
                 logger.debug(
-                    f"There are {len(validated)} validated families out of {pansize} families."
+                    f"There are {len(validated)} validated families out of {nb_families} families."
                 )
                 p.close()
                 p.join()
-        for fam, data in cpt_partition.items():
+        for fam, data in votes.items():
             partitioning_results[fam] = max(data, key=data.get)
 
         # need to compute the median vectors of each partition ???
         partitioning_results = [partitioning_results, []]  # introduces a 'non feature'.
 
         logger.info(
-            f"Did {len(samples)} partitioning with chunks of size {chunk_size} among "
-            f"{len(organisms)} genomes in {round(time.time() - start_partitioning, 2)} seconds."
+            f"Did {len(chunks)} partitioning with chunks of size {chunk_size} among "
+            f"{len(genomes)} genomes in {round(time.time() - start_partitioning, 2)} seconds."
         )
     else:
-        *_, edges_weight, nb_fam = nem_input = build_nem_input(index, sm_degree)
+        *_, edges_weight, nb_families = nem_input = build_nem_input(
+            index, max_degree_smoothing
+        )
         partitioning_results = run_partitioning(
             nem_input,
-            len(organisms),
-            beta * (nb_fam / edges_weight),
+            len(genomes),
+            beta * (nb_families / edges_weight),
             free_dispersion,
-            kval=kval,
+            k=k,
         )
         if not partitioning_results[0]:
             raise Exception(
@@ -506,11 +511,11 @@ def partition(
                 "This usually happens because you used very few (<15) genomes."
             )
         logger.info(
-            f"Partitioned {len(organisms)} genomes in "
+            f"Partitioned {len(genomes)} genomes in "
             f"{round(time.time() - start_partitioning, 2)} seconds."
         )
 
-    # pangenome.savePartitionParameters(K, beta, free_dispersion, sm_degree, partitioning_results[1], chunk_size)
+    # pangenome.savePartitionParameters(K, beta, free_dispersion, max_degree_smoothing, partitioning_results[1], chunk_size)
 
     for fam_name, part in partitioning_results[0].items():
         pangenome.get_gene_family(fam_name).partition = part
