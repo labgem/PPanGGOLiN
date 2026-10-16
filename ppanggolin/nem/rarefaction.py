@@ -549,8 +549,7 @@ def make_rarefaction_curve(
     :param soft_core: Soft core threshold
     :param disable_bar: Disable progress bar
     """
-    if krange is None:
-        krange = [3, -1]
+    krange = [3, -1] if krange is None else list(krange)
     try:
         krange[0] = (
             pangenome.parameters["partition"]["# final nb of partitions"]
