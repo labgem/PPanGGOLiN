@@ -63,6 +63,34 @@ COLORS = {
 NB_GENOMES_MIN_FITTING = 15
 
 
+def _count_partitions(labels: dict[str, str], k: int) -> dict[str, int | str]:
+    """Count the families of each partition.
+
+    :param labels: Label of each family.
+    :param k: Number of partitions.
+    :return: Number of persistent, shell, cloud and undefined families, and k.
+    """
+    if len(labels) == 0:
+        return {
+            "persistent": "NA",
+            "shell": "NA",
+            "cloud": "NA",
+            "undefined": "NA",
+            "K": k,
+        }
+    counts = {"persistent": 0, "shell": 0, "cloud": 0, "undefined": 0, "K": k}
+    for label in labels.values():
+        if label.startswith("P"):
+            counts["persistent"] += 1
+        elif label.startswith("C"):
+            counts["cloud"] += 1
+        elif label.startswith("S"):
+            counts["shell"] += 1
+        else:
+            counts["undefined"] += 1
+    return counts
+
+
 def partition_sample(
     sample_id: int,
     sample: NemIndex,
@@ -125,27 +153,7 @@ def partition_sample(
                 votes.add(result.partitions)
             min_draws += 1  # if families are left to validate, draw more chunks
         labels = votes.labels()
-    if len(labels) == 0:
-        counts = {
-            "persistent": "NA",
-            "shell": "NA",
-            "cloud": "NA",
-            "undefined": "NA",
-            "K": k,
-        }
-    else:
-        counts = {"persistent": 0, "shell": 0, "cloud": 0, "undefined": 0, "K": k}
-
-        for label in labels.values():
-            if label.startswith("P"):
-                counts["persistent"] += 1
-            elif label.startswith("C"):
-                counts["cloud"] += 1
-            elif label.startswith("S"):
-                counts["shell"] += 1
-            else:
-                counts["undefined"] += 1
-    return counts, sample_id
+    return _count_partitions(labels, k), sample_id
 
 
 def _partition_sample_worker(
@@ -445,6 +453,164 @@ def draw_curve(output: Path, rows: list[dict], max_sampling: int = 10):
     )
 
 
+def _resolve_krange(pangenome: Pangenome, krange: list[int] | None) -> list[int]:
+    """Replace negative krange bounds with the pangenome's number of partitions.
+
+    :param pangenome: Pangenome, possibly already partitioned.
+    :param krange: Range of k values, None for [3, k of the pangenome].
+    :return: The range, [3, 20] if a bound is negative and the pangenome has no k.
+    """
+    if krange is None:
+        krange = [3, -1]
+    try:
+        for i in (0, 1):
+            if krange[i] < 0:
+                krange[i] = pangenome.parameters["partition"][
+                    "# final nb of partitions"
+                ]
+    except KeyError:
+        krange = [3, 20]
+    return krange
+
+
+def _draw_samples(
+    organisms: list,
+    min_sampling: int,
+    max_sampling: int,
+    depth: int,
+    rng: random.Random,
+) -> list[set]:
+    """Draw `depth` random samples of genomes at each sample size.
+
+    :param organisms: Genomes to draw from.
+    :param min_sampling: Smallest sample size, minus one.
+    :param max_sampling: Largest sample size.
+    :param depth: Number of samples at each size.
+    :param rng: Random generator.
+    :return: The samples.
+    """
+    return [
+        set(rng.sample(organisms, i + 1))
+        for i in range(min_sampling, max_sampling)
+        for _ in range(depth)
+    ]
+
+
+def _exact_and_soft_counts(
+    pangenome: Pangenome, samples: list[set], soft_core: float, disable_bar: bool
+) -> list[Counter]:
+    """Count the exact and soft core and accessory families of each sample.
+
+    :param pangenome: Pangenome.
+    :param samples: Samples of genomes.
+    :param soft_core: Soft core threshold.
+    :param disable_bar: Disable the progress bar.
+    :return: The counts of each sample.
+    """
+    logger.info("Computing bitarrays for each family...")
+    org_bit = pangenome.compute_family_bitarrays()
+    logger.info(
+        "Done computing bitarrays. Comparing them to get exact and soft core stats "
+        f"for {len(samples)} samples..."
+    )
+    rows = []
+    with tqdm(
+        total=len(samples) * pangenome.number_of_gene_families,
+        unit="gene family",
+        disable=disable_bar,
+    ) as bar:
+        for sample in samples:
+            sample_bitarray = gmpy2.xmpz()  # pylint: disable=no-member
+            for org in sample:
+                sample_bitarray[org_bit[org]] = 1
+
+            counts = Counter(
+                soft_core=0, exact_core=0, exact_accessory=0, soft_accessory=0
+            )
+            counts["nborgs"] = len(sample)
+            for fam in pangenome.gene_families:
+                nb_common = gmpy2.popcount(
+                    fam.bitarray & sample_bitarray
+                )  # pylint: disable=no-member
+                if nb_common != 0:  # otherwise the family is not in the sample
+                    if nb_common == len(sample):
+                        counts["exact_core"] += 1
+                    else:
+                        counts["exact_accessory"] += 1
+
+                    if float(nb_common) >= len(sample) * soft_core:
+                        counts["soft_core"] += 1
+                    else:
+                        counts["soft_accessory"] += 1
+                bar.update()
+            rows.append(counts)
+    return rows
+
+
+def _partition_samples(
+    nem_index: NemIndex,
+    samples: list[set],
+    k: int,
+    rng: random.Random,
+    rows: list[dict],
+    beta: float,
+    max_degree_smoothing: int,
+    free_dispersion: bool,
+    chunk_size: int,
+    krange: list[int],
+    seed: int,
+    cpu: int,
+    disable_bar: bool,
+):
+    """Partition every sample and add its partition counts to its row.
+
+    :param nem_index: NEM index of all the genomes.
+    :param samples: Samples of genomes.
+    :param k: Number of partitions, under 3 to estimate it on each sample.
+    :param rng: Random generator, used to shuffle the processing order.
+    :param rows: Family counts of each sample, updated in place.
+    :param beta: Strength of the smoothing using the graph topology.
+    :param max_degree_smoothing: Maximum degree of a family included in the smoothing.
+    :param free_dispersion: Free dispersion per genome instead of shared.
+    :param chunk_size: Partition a sample in chunks of this many genomes when it has more.
+    :param krange: Range of k values tested when estimating k, already resolved.
+    :param seed: Seed used to generate random numbers.
+    :param cpu: Number of available CPUs.
+    :param disable_bar: Disable the progress bar.
+    """
+    with get_context("fork").Pool(
+        processes=cpu, initializer=set_threads, initargs=(1,)
+    ) as pool:
+        logger.info(" Partitioning all samples...")
+        with tqdm(
+            total=len(samples), unit="samples partitioned", disable=disable_bar
+        ) as bar:
+            order = list(range(len(samples)))
+            # shuffled so that the progress bar is closer to reality
+            rng.shuffle(order)
+            args = (
+                (
+                    sample_id,
+                    subset_nem_index(
+                        nem_index, [org.name for org in samples[sample_id]]
+                    ),
+                    beta,
+                    max_degree_smoothing,
+                    free_dispersion,
+                    chunk_size,
+                    k,
+                    krange,
+                    seed,
+                )
+                for sample_id in order
+            )
+            for counts, sample_id in pool.imap_unordered(
+                _partition_sample_worker, args
+            ):
+                rows[sample_id] = {**counts, **rows[sample_id]}
+                bar.update()
+
+
 def make_rarefaction_curve(
     pangenome: Pangenome,
     output: Path,
@@ -483,21 +649,7 @@ def make_rarefaction_curve(
     :param soft_core: Soft core threshold
     :param disable_bar: Disable progress bar
     """
-    if krange is None:
-        krange = [3, -1]
-    try:
-        krange[0] = (
-            pangenome.parameters["partition"]["# final nb of partitions"]
-            if krange[0] < 0
-            else krange[0]
-        )
-        krange[1] = (
-            pangenome.parameters["partition"]["# final nb of partitions"]
-            if krange[1] < 0
-            else krange[1]
-        )
-    except KeyError:
-        krange = [3, 20]
+    krange = _resolve_krange(pangenome, krange)
     check_pangenome_info(
         pangenome,
         need_annotations=True,
@@ -512,14 +664,12 @@ def make_rarefaction_curve(
     else:
         max_sampling = int(max_sampling)
 
-    if k < 3 and reestimate_k is False:  # estimate K once and for all.
+    if k < 3 and not reestimate_k:  # estimate k once and for all
         try:
             k = pangenome.parameters["partition"]["# final nb of partitions"]
-            logging.getLogger("PPanGGOLiN").info(f"Reuse the number of partitions {k}")
+            logger.info(f"Reuse the number of partitions {k}")
         except KeyError:
-            logging.getLogger("PPanGGOLiN").info(
-                "Estimating the number of partitions..."
-            )
+            logger.info("Estimating the number of partitions...")
             k = evaluate_nb_partitions(
                 index=nem_index,
                 max_degree_smoothing=max_degree_smoothing,
@@ -529,97 +679,37 @@ def make_rarefaction_curve(
                 cpu=cpu,
                 seed=seed,
             )
-            logging.getLogger("PPanGGOLiN").info(
-                f"The number of partitions has been evaluated at {k}"
-            )
+            logger.info(f"The number of partitions has been evaluated at {k}")
 
-    logging.getLogger("PPanGGOLiN").info("Extracting samples ...")
-    random.seed(seed)
-    samples = []
-    for i in range(min_sampling, max_sampling):  # each point
-        for _ in range(depth):  # number of samples per points
-            samples.append(set(random.sample(list(pangenome.organisms), i + 1)))
-    logging.getLogger("PPanGGOLiN").info(
-        f"Done sampling genomes in the pan, there are {len(samples)} samples"
+    logger.info("Extracting samples ...")
+    rng = random.Random(seed)
+    samples = _draw_samples(
+        list(pangenome.organisms), min_sampling, max_sampling, depth, rng
     )
-    rows = []
+    logger.info(f"Done sampling genomes in the pan, there are {len(samples)} samples")
 
-    logging.getLogger("PPanGGOLiN").info("Computing bitarrays for each family...")
-    org_bit = pangenome.compute_family_bitarrays()
-    logging.getLogger("PPanGGOLiN").info(
-        "Done computing bitarrays. Comparing them to get exact and soft core stats "
-        f"for {len(samples)} samples..."
+    rows = _exact_and_soft_counts(pangenome, samples, soft_core, disable_bar)
+    _partition_samples(
+        nem_index,
+        samples,
+        k,
+        rng,
+        rows,
+        beta,
+        max_degree_smoothing,
+        free_dispersion,
+        chunk_size,
+        krange,
+        seed,
+        cpu,
+        disable_bar,
     )
-    bar = tqdm(
-        range(len(samples) * pangenome.number_of_gene_families),
-        unit="gene family",
-        disable=disable_bar,
-    )
-    for sample in samples:
-        # make the sample's organism bitarray.
-        sample_bitarray = gmpy2.xmpz()  # pylint: disable=no-member
-        for org in sample:
-            sample_bitarray[org_bit[org]] = 1
 
-        counts = Counter()
-        counts["soft_core"] = 0
-        counts["exact_core"] = 0
-        counts["exact_accessory"] = 0
-        counts["soft_accessory"] = 0
-        for fam in pangenome.gene_families:
-            nb_common = gmpy2.popcount(
-                fam.bitarray & sample_bitarray
-            )  # pylint: disable=no-member
-            counts["nborgs"] = len(sample)
-            if nb_common != 0:  # in that case the node 'does not exist'
-                if nb_common == len(sample):
-                    counts["exact_core"] += 1
-                else:
-                    counts["exact_accessory"] += 1
-
-                if float(nb_common) >= len(sample) * soft_core:
-                    counts["soft_core"] += 1
-                else:
-                    counts["soft_accessory"] += 1
-            bar.update()
-        rows.append(counts)
-    bar.close()
-    # done with frequency of each family for each sample.
-
-    with get_context("fork").Pool(
-        processes=cpu, initializer=set_threads, initargs=(1,)
-    ) as p:
-        # launch partitioning
-        logging.getLogger("PPanGGOLiN").info(" Partitioning all samples...")
-        bar = tqdm(range(len(samples)), unit="samples partitioned", disable=disable_bar)
-        order = list(range(len(samples)))
-        random.shuffle(
-            order
-        )  # shuffling the processing so that the progress bar is closer to reality.
-        args = (
-            (
-                sample_id,
-                subset_nem_index(nem_index, [org.name for org in samples[sample_id]]),
-                beta,
-                max_degree_smoothing,
-                free_dispersion,
-                chunk_size,
-                k,
-                krange,
-                seed,
-            )
-            for sample_id in order
-        )
-        for result in p.imap_unordered(_partition_sample_worker, args):
-            rows[result[1]] = {**result[0], **rows[result[1]]}
-            bar.update()
-    bar.close()
-
-    logging.getLogger("PPanGGOLiN").info("Done  partitioning everything")
+    logger.info("Done  partitioning everything")
     warnings.filterwarnings("ignore")
     draw_curve(output, rows, max_sampling)
     warnings.resetwarnings()
-    logging.getLogger("PPanGGOLiN").info("Done making the rarefaction curves")
+    logger.info("Done making the rarefaction curves")
 
 
 def launch(args: argparse.Namespace):
