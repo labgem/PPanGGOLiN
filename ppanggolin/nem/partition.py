@@ -58,7 +58,6 @@ def run_partitioning(
     beta: float = 2.5,
     free_dispersion: bool = False,
     kval: int = 3,
-    init: str = "param_file",
     itermax: int = 100,
     just_log_likelihood: bool = False,
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
@@ -70,7 +69,6 @@ def run_partitioning(
     :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
     :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
     :param kval: Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.
-    :param init: Initiate nem parameters with pangenome parameters or randomly
     :param itermax: Maximum iteration to compute partitioning
     :param just_log_likelihood: Return only nem parameter result
 
@@ -86,20 +84,19 @@ def run_partitioning(
         beta=beta,
         free_dispersion=free_dispersion,
         kval=kval,
-        init=init,
         itermax=itermax,
         just_log_likelihood=just_log_likelihood,
     )
 
 
 def nem_single(
-    args: Tuple[NemIndex, int, int, float, bool, int, str, int, bool]
+    args: Tuple[NemIndex, int, int, float, bool, int, int, bool]
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
     Allow to run partitioning in multiprocessing to evaluate partition number
 
     :param args: {chunk: NemIndex, sm_degree: int, nb_org: int, beta: float, free_dispersion: bool,
-                  kval: int, init: str, itermax: int, just_log_likelihood: bool}
+                  kval: int, itermax: int, just_log_likelihood: bool}
     :return: Result of run partitioning
     """
     chunk, sm_degree, *nem_args = args
@@ -112,7 +109,6 @@ def partition_nem(
     beta: float = 2.5,
     sm_degree: int = 10,
     free_dispersion: bool = False,
-    init: str = "param_file",
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
 
@@ -121,7 +117,6 @@ def partition_nem(
     :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
     :param sm_degree:  Maximum degree of the nodes to be included in the smoothing process.
     :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
-    :param init: Initiate nem parameters with pangenome parameters or randomly
     :return:
     """
     *_, edges_weight, nb_fam = nem_input = build_nem_input(chunk, sm_degree)
@@ -131,7 +126,6 @@ def partition_nem(
         beta * (nb_fam / edges_weight),
         free_dispersion,
         kval=kval,
-        init=init,
     )
 
 
@@ -139,7 +133,7 @@ def nem_samples(
     pack: tuple,
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """run partitioning
-    :param pack: {chunk: NemIndex, kval: int, beta: float, sm_degree: int, free_dispersion: bool, init: str}
+    :param pack: {chunk: NemIndex, kval: int, beta: float, sm_degree: int, free_dispersion: bool}
 
     :return:
     """
@@ -329,7 +323,7 @@ def evaluate_nb_partitions(
     nb_fam = len(index.fam_names)
     max_icl_k = 0
     nem_args = [
-        (len(select_organisms), 0, free_dispersion, k, "param_file", 10, True)
+        (len(select_organisms), 0, free_dispersion, k, 10, True)
         for k in range(krange[0] - 1, krange[1] + 1)
     ]
     all_log_likelihood = []
@@ -580,7 +574,6 @@ def partition(
 
     pangenome.parameters["partition"]["# final nb of partitions"] = kval
     pangenome.parameters["partition"]["krange"] = kmm
-    init = "param_file"
 
     partitioning_results = {}
 
@@ -643,7 +636,6 @@ def partition(
                     beta,
                     sm_degree,
                     free_dispersion,
-                    init,
                 )
                 for samp in samples[prev:]
             )
@@ -687,7 +679,6 @@ def partition(
             beta * (nb_fam / edges_weight),
             free_dispersion,
             kval=kval,
-            init=init,
         )
         if partitioning_results == [{}, None, None]:
             raise Exception(
