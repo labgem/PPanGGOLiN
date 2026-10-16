@@ -16,7 +16,7 @@ from typing import Tuple, Dict
 from tqdm import tqdm
 import gmpy2
 import numpy as np
-from pandas import Series, read_csv
+from pandas import DataFrame, Series, read_csv
 import plotly.offline as out_plotly
 import plotly.graph_objs as go
 import scipy.optimize as optimization
@@ -33,6 +33,33 @@ from ppanggolin.nem.nem_input import (
     build_nem_input,
     subset_nem_index,
 )
+
+
+logger = logging.getLogger("PPanGGOLiN")
+
+CURVE_COLUMNS = [
+    "persistent",
+    "shell",
+    "cloud",
+    "undefined",
+    "exact_core",
+    "exact_accessory",
+    "soft_core",
+    "soft_accessory",
+    "pangenome",
+]
+COLORS = {
+    "pangenome": "black",
+    "exact_accessory": "#EB37ED",
+    "exact_core": "#FF2828",
+    "soft_core": "#c7c938",
+    "soft_accessory": "#996633",
+    "shell": "#00D860",
+    "persistent": "#F7A507",
+    "cloud": "#79DEFF",
+    "undefined": "#828282",
+}
+NB_GENOMES_MIN_FITTING = 15
 
 
 def partition_sample(
@@ -133,322 +160,276 @@ def _partition_sample_worker(
     return partition_sample(*args)
 
 
-def draw_curve(output: Path, data: list, max_sampling: int = 10):
-    """
-    Draw the rarefaction curve and associated data
+def write_rarefaction_table(output: Path, rows: list[dict]) -> Path:
+    """Write the family counts of each sample.
 
-    :param output: output directory path to draw the rarefaction curve and associated data
-    :param max_sampling: Maximum number of organisms in a sample
-    :param data:
+    :param output: Output directory.
+    :param rows: Family counts of each sample.
+    :return: Path of the table.
     """
-    logging.getLogger("PPanGGOLiN").info("Drawing the rarefaction curve ...")
-    raref_name = output / "rarefaction.csv"
-    raref = open(raref_name, "w")
-    raref.write(
-        ",".join(
-            [
-                "genomes_count",
-                "persistent",
-                "shell",
-                "cloud",
-                "undefined",
-                "exact_core",
-                "exact_accessory",
-                "soft_core",
-                "soft_accessory",
-                "pangenome",
-                "K",
-            ]
-        )
-        + "\n"
-    )
-    for part in data:
-        raref.write(
+    table = output / "rarefaction.csv"
+    with open(table, "w") as out:
+        out.write(
             ",".join(
-                map(
-                    str,
-                    [
-                        part["nborgs"],
-                        part["persistent"],
-                        part["shell"],
-                        part["cloud"],
-                        part["undefined"],
-                        part["exact_core"],
-                        part["exact_accessory"],
-                        part["soft_core"],
-                        part["soft_accessory"],
-                        part["exact_core"] + part["exact_accessory"],
-                        part["K"],
-                    ],
-                )
+                [
+                    "genomes_count",
+                    "persistent",
+                    "shell",
+                    "cloud",
+                    "undefined",
+                    "exact_core",
+                    "exact_accessory",
+                    "soft_core",
+                    "soft_accessory",
+                    "pangenome",
+                    "K",
+                ]
             )
             + "\n"
         )
-    raref.close()
+        for row in rows:
+            out.write(
+                ",".join(
+                    map(
+                        str,
+                        [
+                            row["nborgs"],
+                            row["persistent"],
+                            row["shell"],
+                            row["cloud"],
+                            row["undefined"],
+                            row["exact_core"],
+                            row["exact_accessory"],
+                            row["soft_core"],
+                            row["soft_accessory"],
+                            row["exact_core"] + row["exact_accessory"],
+                            row["K"],
+                        ],
+                    )
+                )
+                + "\n"
+            )
+    return table
 
-    def heap_law(n, p_kappa, p_gamma) -> float:
-        return p_kappa * n**p_gamma
 
-    def poly_area(p_x: list, p_y: list) -> float:
-        return 0.5 * np.abs(np.dot(p_x, np.roll(p_y, 1)) - np.dot(p_y, np.roll(p_x, 1)))
+def heap_law(n, p_kappa, p_gamma) -> float:
+    """Heaps' law: number of families in n genomes.
 
+    :param n: Number of genomes.
+    :param p_kappa: Scale.
+    :param p_gamma: Exponent.
+    :return: The number of families.
+    """
+    return p_kappa * n**p_gamma
+
+
+def _poly_area(p_x: list, p_y: list) -> float:
+    """Area of a polygon, by the shoelace formula.
+
+    :param p_x: Abscissas of the vertices.
+    :param p_y: Ordinates of the vertices.
+    :return: The area.
+    """
+    return 0.5 * np.abs(np.dot(p_x, np.roll(p_y, 1)) - np.dot(p_y, np.roll(p_x, 1)))
+
+
+def _summary_series(
+    data: DataFrame, column: str, max_sampling: int
+) -> dict[str, Series]:
+    """Summarize a column at each sample size.
+
+    :param data: Rarefaction table.
+    :param column: Column to summarize.
+    :param max_sampling: Largest sample size.
+    :return: First and third quartiles, minimum, maximum, median and mean at each size.
+    """
+    sizes = range(1, max_sampling + 1)
+    values = {i: data[data["genomes_count"] == i][column] for i in sizes}
+    return {
+        "q3": Series({i: np.nanpercentile(values[i], 75) for i in sizes}).dropna(),
+        "q1": Series({i: np.nanpercentile(values[i], 25) for i in sizes}).dropna(),
+        "min": Series({i: np.min(values[i]) for i in sizes}).dropna(),
+        "max": Series({i: np.max(values[i]) for i in sizes}).dropna(),
+        "median": Series({i: np.median(values[i]) for i in sizes}).dropna(),
+        "mean": Series({i: np.mean(values[i]) for i in sizes}).dropna(),
+    }
+
+
+def _fit_heaps_law(data: DataFrame, column: str) -> tuple[float, float, float, float]:
+    """Fit Heaps' law on the samples larger than `NB_GENOMES_MIN_FITTING`.
+
+    :param data: Rarefaction table.
+    :param column: Column to fit.
+    :raises RuntimeError: If the fit does not converge.
+    :return: kappa, gamma and their standard errors.
+    """
+    values = data[data["genomes_count"] > NB_GENOMES_MIN_FITTING][column].dropna()
+    params, covariance = optimization.curve_fit(
+        heap_law,
+        data.loc[values.index]["genomes_count"],
+        values,
+        np.array([0.0, 0.0]),
+    )
+    kappa, gamma = params
+    error_k, error_g = np.sqrt(np.diag(covariance))
+    return kappa, gamma, error_k, error_g
+
+
+def _heaps_law_traces(
+    column: str, fit: tuple, area_iqr: float, max_sampling: int
+) -> tuple[list[go.Scatter], dict]:
+    """Plot a Heaps' law fit with its error band.
+
+    :param column: Fitted column.
+    :param fit: kappa, gamma and their standard errors.
+    :param area_iqr: Area between the quartile curves.
+    :param max_sampling: Largest sample size.
+    :return: The fit traces and their annotation.
+    """
+    kappa, gamma, error_k, error_g = fit
+    sizes = range(NB_GENOMES_MIN_FITTING + 1, max_sampling + 1)
+    visible = "legendonly" if column == "undefined" else True
+    traces = []
+    for name, width, p_kappa, p_gamma in (
+        (": Heaps' law", 4, kappa, gamma),
+        (": Heaps' law error +", 1, kappa - error_k, gamma + error_g),
+        (": Heaps' law error -", 1, kappa + error_k, gamma - error_g),
+    ):
+        traces.append(
+            go.Scatter(
+                x=list(sizes),
+                y=np.apply_along_axis(heap_law, 0, sizes, p_kappa, p_gamma),
+                name=column + name,
+                line=dict(color=COLORS[column], width=width, dash="dash"),
+                visible=visible,
+            )
+        )
+    annotation = dict(
+        x=max_sampling,
+        y=heap_law(max_sampling, kappa, gamma),
+        ay=0,
+        ax=50,
+        text="F="
+        + str(round(kappa, 0))
+        + "N"
+        + "<sup>"
+        + str(round(gamma, 5))
+        + "</sup><br>IQRarea="
+        + str(round(area_iqr, 2)),
+        showarrow=True,
+        arrowhead=7,
+        font=dict(size=10, color="white"),
+        align="center",
+        arrowcolor=COLORS[column],
+        bordercolor="#c7c7c7",
+        borderwidth=2,
+        borderpad=4,
+        bgcolor=COLORS[column],
+        opacity=0.8,
+    )
+    return traces, annotation
+
+
+def _summary_traces(column: str, summary: dict[str, Series]) -> list[go.Scatter]:
+    """Plot the medians, means and quartiles of a column.
+
+    :param column: Summarized column.
+    :param summary: Output of `_summary_series`.
+    :return: The traces.
+    """
+    color = COLORS[column]
+    visible = "legendonly" if column == "undefined" else True
+    medians = summary["median"]
+    return [
+        go.Scatter(
+            x=medians.index,
+            y=medians,
+            name=column + " : medians",
+            mode="lines+markers",
+            error_y=dict(
+                type="data",
+                symmetric=False,
+                array=summary["max"].subtract(medians),
+                arrayminus=medians.subtract(summary["min"]),
+                visible=True,
+                color=color,
+                thickness=0.5,
+            ),
+            line=dict(color=color, width=1),
+            marker=dict(color=color, symbol=3, size=8, opacity=0.5),
+            visible=visible,
+        ),
+        go.Scatter(
+            x=summary["mean"].index,
+            y=summary["mean"],
+            name=column + " : means",
+            mode="markers",
+            marker=dict(color=color, symbol=4, size=8, opacity=0.5),
+            visible=visible,
+        ),
+        go.Scatter(
+            x=summary["q3"].index,
+            y=summary["q3"],
+            name=column + " : 3rd quartile",
+            mode="lines",
+            hoveron="points",
+            line=dict(color=color),
+            marker=dict(color=color),
+            visible=visible,
+        ),
+        go.Scatter(
+            x=summary["q1"].index,
+            y=summary["q1"],
+            name=column + " : 1st quartile",
+            fill="tonexty",
+            mode="lines",
+            hoveron="points",
+            line=dict(color=color),
+            marker=dict(color=color),
+            visible=visible,
+        ),
+    ]
+
+
+def draw_curve(output: Path, rows: list[dict], max_sampling: int = 10):
+    """Write the rarefaction table, fit Heaps' law on each column and draw the curves.
+
+    :param output: Output directory.
+    :param rows: Family counts of each sample.
+    :param max_sampling: Largest sample size.
+    """
+    logger.info("Drawing the rarefaction curve ...")
+    data = read_csv(write_rarefaction_table(output, rows), index_col=False)
     annotations = []
     traces = []
-    data_raref = read_csv(raref_name, index_col=False)
-    params_file = open(output / "rarefaction_parameters.csv", "w")
-    params_file.write(
-        "partition,kappa,gamma,kappa_std_error,gamma_std_error,IQR_area\n"
-    )
-    for partition in [
-        "persistent",
-        "shell",
-        "cloud",
-        "undefined",
-        "exact_core",
-        "exact_accessory",
-        "soft_core",
-        "soft_accessory",
-        "pangenome",
-    ]:
-        percentiles_75 = Series(
-            {
-                i: np.nanpercentile(
-                    data_raref[data_raref["genomes_count"] == i][partition], 75
-                )
-                for i in range(1, max_sampling + 1)
-            }
-        ).dropna()
-        percentiles_25 = Series(
-            {
-                i: np.nanpercentile(
-                    data_raref[data_raref["genomes_count"] == i][partition], 25
-                )
-                for i in range(1, max_sampling + 1)
-            }
-        ).dropna()
-        mins = Series(
-            {
-                i: np.min(data_raref[data_raref["genomes_count"] == i][partition])
-                for i in range(1, max_sampling + 1)
-            }
-        ).dropna()
-        maxs = Series(
-            {
-                i: np.max(data_raref[data_raref["genomes_count"] == i][partition])
-                for i in range(1, max_sampling + 1)
-            }
-        ).dropna()
-        medians = Series(
-            {
-                i: np.median(data_raref[data_raref["genomes_count"] == i][partition])
-                for i in range(1, max_sampling + 1)
-            }
-        ).dropna()
-        means = Series(
-            {
-                i: np.mean(data_raref[data_raref["genomes_count"] == i][partition])
-                for i in range(1, max_sampling + 1)
-            }
-        ).dropna()
-        initial_kappa_gamma = np.array([0.0, 0.0])
-        x = percentiles_25.index.tolist()
-        x += list(reversed(percentiles_25.index.tolist()))
-        area_iqr = poly_area(x, percentiles_25.tolist() + percentiles_75.tolist())
-        nb_org_min_fitting = 15
-        colors = {
-            "pangenome": "black",
-            "exact_accessory": "#EB37ED",
-            "exact_core": "#FF2828",
-            "soft_core": "#c7c938",
-            "soft_accessory": "#996633",
-            "shell": "#00D860",
-            "persistent": "#F7A507",
-            "cloud": "#79DEFF",
-            "undefined": "#828282",
-        }
-        try:
-            all_values = data_raref[data_raref["genomes_count"] > nb_org_min_fitting][
-                partition
-            ].dropna()
-            res = optimization.curve_fit(
-                heap_law,
-                data_raref.loc[all_values.index]["genomes_count"],
-                all_values,
-                initial_kappa_gamma,
-            )
-            kappa, gamma = res[0]
-            error_k, error_g = np.sqrt(
-                np.diag(res[1])
-            )  # to calculate the fitting error.
-            # The variance of parameters are the diagonal elements of the variance-co variance matrix,
-            # and the standard error is the square root of it. source :
-            # https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
-            if np.isinf(error_k) and np.isinf(error_g):
+    with open(output / "rarefaction_parameters.csv", "w") as params_file:
+        params_file.write(
+            "partition,kappa,gamma,kappa_std_error,gamma_std_error,IQR_area\n"
+        )
+        for column in CURVE_COLUMNS:
+            summary = _summary_series(data, column, max_sampling)
+            q1 = summary["q1"]
+            x = q1.index.tolist() + list(reversed(q1.index.tolist()))
+            area_iqr = _poly_area(x, q1.tolist() + summary["q3"].tolist())
+            try:
+                fit = _fit_heaps_law(data, column)
+            except (TypeError, RuntimeError, ValueError):
+                fit = None
+            if fit is None or (np.isinf(fit[2]) and np.isinf(fit[3])):
                 params_file.write(
-                    ",".join([partition, "NA", "NA", "NA", "NA", str(area_iqr)]) + "\n"
+                    ",".join([column, "NA", "NA", "NA", "NA", str(area_iqr)]) + "\n"
                 )
             else:
                 params_file.write(
-                    ",".join(
-                        [
-                            partition,
-                            str(kappa),
-                            str(gamma),
-                            str(error_k),
-                            str(error_g),
-                            str(area_iqr),
-                        ]
-                    )
-                    + "\n"
+                    ",".join([column, *map(str, fit), str(area_iqr)]) + "\n"
                 )
-                regression = np.apply_along_axis(
-                    heap_law,
-                    0,
-                    range(nb_org_min_fitting + 1, max_sampling + 1),
-                    kappa,
-                    gamma,
+                fit_traces, annotation = _heaps_law_traces(
+                    column, fit, area_iqr, max_sampling
                 )
-                regression_sd_top = np.apply_along_axis(
-                    heap_law,
-                    0,
-                    range(nb_org_min_fitting + 1, max_sampling + 1),
-                    kappa - error_k,
-                    gamma + error_g,
-                )
-                regression_sd_bottom = np.apply_along_axis(
-                    heap_law,
-                    0,
-                    range(nb_org_min_fitting + 1, max_sampling + 1),
-                    kappa + error_k,
-                    gamma - error_g,
-                )
-                traces.append(
-                    go.Scatter(
-                        x=list(range(nb_org_min_fitting + 1, max_sampling + 1)),
-                        y=regression,
-                        name=partition + ": Heaps' law",
-                        line=dict(color=colors[partition], width=4, dash="dash"),
-                        visible="legendonly" if partition == "undefined" else True,
-                    )
-                )
-                traces.append(
-                    go.Scatter(
-                        x=list(range(nb_org_min_fitting + 1, max_sampling + 1)),
-                        y=regression_sd_top,
-                        name=partition + ": Heaps' law error +",
-                        line=dict(color=colors[partition], width=1, dash="dash"),
-                        visible="legendonly" if partition == "undefined" else True,
-                    )
-                )
-                traces.append(
-                    go.Scatter(
-                        x=list(range(nb_org_min_fitting + 1, max_sampling + 1)),
-                        y=regression_sd_bottom,
-                        name=partition + ": Heaps' law error -",
-                        line=dict(color=colors[partition], width=1, dash="dash"),
-                        visible="legendonly" if partition == "undefined" else True,
-                    )
-                )
-                annotations.append(
-                    dict(
-                        x=max_sampling,
-                        y=heap_law(max_sampling, kappa, gamma),
-                        ay=0,
-                        ax=50,
-                        text="F="
-                        + str(round(kappa, 0))
-                        + "N"
-                        + "<sup>"
-                        + str(round(gamma, 5))
-                        + "</sup><br>IQRarea="
-                        + str(round(area_iqr, 2)),
-                        showarrow=True,
-                        arrowhead=7,
-                        font=dict(size=10, color="white"),
-                        align="center",
-                        arrowcolor=colors[partition],
-                        bordercolor="#c7c7c7",
-                        borderwidth=2,
-                        borderpad=4,
-                        bgcolor=colors[partition],
-                        opacity=0.8,
-                    )
-                )
-        except (TypeError, RuntimeError, ValueError):  # if fitting doesn't work
-            params_file.write(
-                ",".join([partition, "NA", "NA", "NA", "NA", str(area_iqr)]) + "\n"
-            )
+                traces += fit_traces
+                annotations.append(annotation)
+            traces += _summary_traces(column, summary)
 
-        traces.append(
-            go.Scatter(
-                x=medians.index,
-                y=medians,
-                name=partition + " : medians",
-                mode="lines+markers",
-                error_y=dict(
-                    type="data",
-                    symmetric=False,
-                    array=maxs.subtract(medians),
-                    arrayminus=medians.subtract(mins),
-                    visible=True,
-                    color=colors[partition],
-                    thickness=0.5,
-                ),
-                line=dict(color=colors[partition], width=1),
-                marker=dict(color=colors[partition], symbol=3, size=8, opacity=0.5),
-                visible="legendonly" if partition == "undefined" else True,
-            )
-        )
-        traces.append(
-            go.Scatter(
-                x=means.index,
-                y=means,
-                name=partition + " : means",
-                mode="markers",
-                marker=dict(color=colors[partition], symbol=4, size=8, opacity=0.5),
-                visible="legendonly" if partition == "undefined" else True,
-            )
-        )
-        # up = percentiles_75
-        # down = percentiles_25
-        # IQR_area = up.append(down[::-1])
-        # traces.append(go.Scatter(x=IQR_area.index,
-        #                          y=IQR_area,
-        #                          name = "IQR",
-        #                          fill='toself',
-        #                          mode="lines",
-        #                          hoveron="points",
-        #                          #hovertext=[str(round(e)) for e in half_stds.multiply(2)],
-        #                          line=dict(color=COLORS[partition]),
-        #                          marker=dict(color = COLORS[partition]),
-        #                          visible = "legendonly" if partition == "undefined" else True))
-        traces.append(
-            go.Scatter(
-                x=percentiles_75.index,
-                y=percentiles_75,
-                name=partition + " : 3rd quartile",
-                mode="lines",
-                hoveron="points",
-                # hovertext=[str(round(e)) for e in half_stds.multiply(2)],
-                line=dict(color=colors[partition]),
-                marker=dict(color=colors[partition]),
-                visible="legendonly" if partition == "undefined" else True,
-            )
-        )
-        traces.append(
-            go.Scatter(
-                x=percentiles_25.index,
-                y=percentiles_25,
-                name=partition + " : 1st quartile",
-                fill="tonexty",
-                mode="lines",
-                hoveron="points",
-                # hovertext=[str(round(e)) for e in half_stds.multiply(2)],
-                line=dict(color=colors[partition]),
-                marker=dict(color=colors[partition]),
-                visible="legendonly" if partition == "undefined" else True,
-            )
-        )
     layout = go.Layout(
         title="Rarefaction curve ",
         titlefont=dict(size=20),
@@ -461,7 +442,6 @@ def draw_curve(output: Path, data: list, max_sampling: int = 10):
     out_plotly.plot(
         fig, filename=output.as_posix() + "/rarefaction_curve.html", auto_open=False
     )
-    params_file.close()
 
 
 def make_rarefaction_curve(
