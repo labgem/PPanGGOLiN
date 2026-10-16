@@ -33,6 +33,40 @@ class NemIndex:
     edge_tgt: np.ndarray
 
 
+@dataclass
+class NemInput:
+    """Dense NEM input for one set of genomes.
+
+    :param presence: Families x genomes presence matrix.
+    :param graph: Smoothing graph between family rows, edges carrying `weight`.
+    :param fam_names: Gene family names, one per row of `presence`.
+    :param edges_weight: Total weight of the smoothing edges.
+    """
+
+    presence: np.ndarray
+    graph: nx.DiGraph
+    fam_names: list[str]
+    edges_weight: float
+
+    @property
+    def nb_families(self) -> int:
+        """Number of gene families."""
+        return self.presence.shape[0]
+
+    @property
+    def nb_genomes(self) -> int:
+        """Number of genomes."""
+        return self.presence.shape[1]
+
+    def scaled_beta(self, beta: float) -> float:
+        """Scale the smoothing strength to the size of the graph.
+
+        :param beta: Smoothing strength given by the user.
+        :return: The strength NEM is run with.
+        """
+        return beta * (self.nb_families / self.edges_weight)
+
+
 def ordered_organisms(organisms) -> list:
     """
     Genomes in a stable, process-independent order.
@@ -135,14 +169,14 @@ def subset_nem_index(index: NemIndex, genomes) -> NemIndex:
     )
 
 
-def build_nem_input(index: NemIndex, max_degree_smoothing: int = 10) -> tuple:
+def build_nem_input(index: NemIndex, max_degree_smoothing: int = 10) -> NemInput:
     """
     Build NEM's inputs for all the genomes of an index
 
     :param index: index of the genomes to partition
     :param max_degree_smoothing: maximum degree of a node included in the smoothing
 
-    :return: (presence, graph, fam_names, edges_weight, nb_families)
+    :return: the dense input
     """
     nb_families, nb_genomes = index.presence.shape
     presence = index.presence.toarray().astype(np.float64)
@@ -173,4 +207,4 @@ def build_nem_input(index: NemIndex, max_degree_smoothing: int = 10) -> tuple:
         )
     )
 
-    return presence, graph, index.fam_names, total_edges_weight / 2, nb_families
+    return NemInput(presence, graph, index.fam_names, total_edges_weight / 2)
