@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
 
 # default libraries
+import argparse
 import logging
+import math
+import os
 import random
 import time
-from multiprocessing import get_context
-import os
-import argparse
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from multiprocessing import get_context
 from collections import defaultdict, Counter
-import math
 from pathlib import Path
 
 # installed libraries
-from tqdm import tqdm
-import plotly.offline as out_plotly
 import plotly.graph_objs as go
+import plotly.offline as out_plotly
+from tqdm import tqdm
 
 # local libraries
-from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mk_outdir
-from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
+from ppanggolin.formats import check_pangenome_info, erase_pangenome, write_pangenome
 from ppanggolin.nem.model import KScore, NemResult, score, solve
 from ppanggolin.nem.nem_input import (
     NemIndex,
@@ -28,6 +27,8 @@ from ppanggolin.nem.nem_input import (
     build_nem_input,
     subset_nem_index,
 )
+from ppanggolin.pangenome import Pangenome
+from ppanggolin.utils import mk_outdir
 
 logger = logging.getLogger("PPanGGOLiN")
 
@@ -151,25 +152,21 @@ def partition_chunk(
     max_degree_smoothing: int = 10,
     free_dispersion: bool = False,
 ) -> NemResult:
-    """
+    """Partition the gene families of one chunk of genomes.
 
-    :param chunk: NEM index of the sample group
-    :param k: Number of partitions to use
-    :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
-    :param max_degree_smoothing:  Maximum degree of the nodes to be included in the smoothing process.
-    :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
-    :return:
+    :param chunk: NEM index of the chunk.
+    :param k: Number of partitions.
+    :param beta: Strength of smoothing using graph topology during partitioning. 0 deactivates spatial smoothing.
+    :param max_degree_smoothing: Maximum degree of a family included in the smoothing process.
+    :param free_dispersion: Free dispersion per genome rather than shared.
+    :return: The partitions of the chunk's families.
     """
     nem_input = build_nem_input(chunk, max_degree_smoothing)
     return solve(nem_input, nem_input.scaled_beta(beta), free_dispersion, k)
 
 
-def _partition_chunk_worker(pack: tuple) -> NemResult:
-    """run partitioning
-    :param pack: {chunk: NemIndex, k: int, beta: float, max_degree_smoothing: int, free_dispersion: bool}
-
-    :return:
-    """
+def _partition_chunk_worker(pack: tuple[NemIndex, int, float, int, bool]) -> NemResult:
+    """Run `partition_chunk` in a pool."""
     return partition_chunk(*pack)
 
 
@@ -381,10 +378,11 @@ def evaluate_nb_partitions(
 
 
 def check_pangenome_former_partition(pangenome: Pangenome, force: bool = False):
-    """checks pangenome status and .h5 files for former partitions, delete them if allowed or raise an error
+    """Check the pangenome for a former partition and erase it if allowed.
 
-    :param pangenome: Pangenome object
-    :param force: Allow to force write on Pangenome file
+    :param pangenome: Pangenome object.
+    :param force: Allow to force write on Pangenome file.
+    :raises Exception: If the pangenome is already partitioned and force is False.
     """
     if pangenome.status["partitioned"] == "inFile" and not force:
         raise Exception(
@@ -594,12 +592,10 @@ def launch(args: argparse.Namespace):
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
-    """
-    Subparser to launch PPanGGOLiN in Command line
+    """Create the subparser of the partition command.
 
-    :param sub_parser : sub_parser for align command
-
-    :return : parser arguments for align command
+    :param sub_parser: Subparsers of the main parser.
+    :return: The partition parser.
     """
     parser = sub_parser.add_parser(
         "partition", formatter_class=argparse.RawTextHelpFormatter
@@ -611,10 +607,9 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
 
 def parser_partition(parser: argparse.ArgumentParser):
-    """
-    Parser for specific argument of partition command
+    """Add the arguments of the partition command.
 
-    :param parser: parser for align argument
+    :param parser: Parser to add them to.
     """
     required = parser.add_argument_group(
         title="Required arguments",

@@ -3,36 +3,42 @@
 # default libraries
 import argparse
 import logging
-from collections import Counter
+import os
 import random
 import time
-from multiprocessing import get_context
-import os
 import warnings
 from pathlib import Path
 from typing import Tuple, Dict
+from collections import Counter
+from dataclasses import dataclass, replace
+from multiprocessing import get_context
 
 # installed libraries
-from tqdm import tqdm
 import gmpy2
 import numpy as np
-from pandas import DataFrame, Series, read_csv
-import plotly.offline as out_plotly
 import plotly.graph_objs as go
+import plotly.offline as out_plotly
 import scipy.optimize as optimization
+from pandas import DataFrame, Series, read_csv
+from tqdm import tqdm
 
 # local libraries
-from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.nem.model import solve
-from ppanggolin.nem.partition import ChunkVotes, draw_chunks, evaluate_nb_partitions
 from ppanggolin.nem.nem_input import (
     NemIndex,
     build_nem_index,
     build_nem_input,
     subset_nem_index,
 )
+from ppanggolin.nem.partition import (
+    ChunkVotes,
+    draw_chunks,
+    evaluate_nb_partitions,
+    partition_chunk,
+)
+from ppanggolin.pangenome import Pangenome
+from ppanggolin.utils import mk_outdir
 
 
 logger = logging.getLogger("PPanGGOLiN")
@@ -738,12 +744,10 @@ def launch(args: argparse.Namespace):
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
-    """
-    Subparser to launch PPanGGOLiN in Command line
+    """Create the subparser of the rarefaction command.
 
-    :param sub_parser : sub_parser for align command
-
-    :return : parser arguments for align command
+    :param sub_parser : Subparser of the main parser.
+    :return : The rarefaction parser.
     """
     parser = sub_parser.add_parser(
         "rarefaction",
@@ -757,10 +761,9 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
 
 def parser_rarefaction(parser: argparse.ArgumentParser):
-    """
-    Parser for specific argument of graph command
+    """Add the arguments for the rarefaction command.
 
-    :param parser: parser for align argument
+    :param parser: Parser to add them to.
     """
     required = parser.add_argument_group(
         title="Required arguments",
