@@ -15,6 +15,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Region
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
 from ppanggolin.utils import restricted_float
+from ppanggolin.errors import AlreadyComputedError
 
 
 class MatriceNode:
@@ -306,7 +307,7 @@ def check_pangenome_former_rgp(pangenome: Pangenome, force: bool = False):
     :param force: Allow to force write on Pangenome file
     """
     if pangenome.status["predictedRGP"] == "inFile" and not force:
-        raise Exception(
+        raise AlreadyComputedError(
             "You are trying to predict RGPs in a pangenome that already have them predicted. "
             "If you REALLY want to do that, use --force "
             "(it will erase RGPs and every feature computed from them)."

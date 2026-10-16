@@ -25,8 +25,8 @@ from ppanggolin.annotate.annotate import (
 )
 from ppanggolin.cluster.cluster import clustering, read_clustering
 from ppanggolin.graph.makeGraph import compute_neighbors_graph
-from ppanggolin.nem.rarefaction import make_rarefaction_curve
-from ppanggolin.nem.partition import partition
+from ppanggolin.nem.rarefaction import RarefactionOptions, make_rarefaction_curve
+from ppanggolin.nem.partition import PartitionOptions, partition
 from ppanggolin.formats.writeBinaries import write_pangenome
 from ppanggolin.formats.writeFlatPangenome import write_pangenome_flat_files
 from ppanggolin.formats.writeFlatGenomes import write_flat_genome_files
@@ -198,21 +198,21 @@ def launch_workflow(
     start_part = time.time()
     partition(
         pangenome,
-        tmpdir=args.tmpdir,
-        output=args.output,
-        beta=args.partition.beta,
-        sm_degree=args.partition.max_degree_smoothing,
-        free_dispersion=args.partition.free_dispersion,
-        chunk_size=args.partition.chunk_size,
-        kval=args.partition.nb_of_partitions,
-        krange=args.partition.krange,
-        icl_margin=args.partition.ICL_margin,
-        draw_icl=args.partition.draw_ICL,
-        seed=args.partition.seed,
-        keep_tmp_files=args.partition.keep_tmp_files,
-        cpu=args.partition.cpu,
-        force=args.force,
-        disable_bar=args.disable_prog_bar,
+        PartitionOptions(
+            output=args.output,
+            beta=args.partition.beta,
+            max_degree_smoothing=args.partition.max_degree_smoothing,
+            free_dispersion=args.partition.free_dispersion,
+            chunk_size=args.partition.chunk_size,
+            k=args.partition.nb_of_partitions,
+            krange=args.partition.krange,
+            icl_margin=args.partition.ICL_margin,
+            draw_icl=args.partition.draw_ICL,
+            seed=args.partition.seed,
+            cpu=args.partition.cpu,
+            force=args.force,
+            disable_bar=args.disable_prog_bar,
+        ),
     )
     part_time = time.time() - start_part
 
@@ -270,23 +270,24 @@ def launch_workflow(
 
     if args.rarefaction_flag:
         make_rarefaction_curve(
-            pangenome=pangenome,
-            output=args.output,
-            tmpdir=args.tmpdir,
-            beta=args.rarefaction.beta,
-            depth=args.rarefaction.depth,
-            min_sampling=args.rarefaction.min,
-            max_sampling=args.rarefaction.max,
-            sm_degree=args.rarefaction.max_degree_smoothing,
-            free_dispersion=args.rarefaction.free_dispersion,
-            chunk_size=args.rarefaction.chunk_size,
-            kval=args.rarefaction.nb_of_partitions,
-            krange=args.rarefaction.krange,
-            seed=args.rarefaction.seed,
-            kestimate=args.rarefaction.reestimate_K,
-            soft_core=args.rarefaction.soft_core,
-            cpu=args.rarefaction.cpu,
-            disable_bar=args.disable_prog_bar,
+            pangenome,
+            RarefactionOptions(
+                output=args.output,
+                beta=args.rarefaction.beta,
+                depth=args.rarefaction.depth,
+                min_sampling=args.rarefaction.min,
+                max_sampling=args.rarefaction.max,
+                max_degree_smoothing=args.rarefaction.max_degree_smoothing,
+                free_dispersion=args.rarefaction.free_dispersion,
+                chunk_size=args.rarefaction.chunk_size,
+                k=args.rarefaction.nb_of_partitions,
+                krange=args.rarefaction.krange,
+                seed=args.rarefaction.seed,
+                reestimate_k=args.rarefaction.reestimate_K,
+                soft_core=args.rarefaction.soft_core,
+                cpu=args.rarefaction.cpu,
+                disable_bar=args.disable_prog_bar,
+            ),
         )
 
     if not args.no_flat_files:

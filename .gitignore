@@ -1,0 +1,24 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Test and coverage output
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+
+# Sphinx
+docs/build/
+
+# Local pangenome runs
+*.h5
+*.gexf
+
+# IDE
+.vscode/

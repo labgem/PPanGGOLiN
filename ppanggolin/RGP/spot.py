@@ -17,6 +17,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Region, Spot
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
 from ppanggolin.utils import mk_outdir
+from ppanggolin.errors import AlreadyComputedError
 
 
 def comp_border(
@@ -203,7 +204,7 @@ def check_pangenome_former_spots(pangenome: Pangenome, force: bool = False):
     :param force: Allow to force write on Pangenome file
     """
     if pangenome.status["spots"] == "inFile" and not force:
-        raise Exception(
+        raise AlreadyComputedError(
             "You are trying to detect spots on a pangenome which already has predicted spots. "
             "If you REALLY want to do that, use --force (it will erase spots previously predicted)."
         )

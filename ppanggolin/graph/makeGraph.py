@@ -11,6 +11,7 @@ from tqdm import tqdm
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.formats import read_pangenome, write_pangenome, erase_pangenome
+from ppanggolin.errors import AlreadyComputedError
 
 
 def check_pangenome_former_graph(pangenome: Pangenome, force: bool = False):
@@ -21,7 +22,7 @@ def check_pangenome_former_graph(pangenome: Pangenome, force: bool = False):
     :param force: Allow to force write on Pangenome file
     """
     if pangenome.status["neighborsGraph"] == "inFile" and not force:
-        raise AttributeError(
+        raise AlreadyComputedError(
             "You are trying to make a neighbors graph that is already built. "
             "If you REALLY want to do that, use --force "
             "(it will erase everything except annotation data !)"
