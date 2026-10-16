@@ -60,14 +60,15 @@ class KScore:
     entropy: float
 
 
-def _initial_parameters(k, nb_genomes):
-    """
-    Structured parameter initialization.
+def _initial_parameters(
+        k: int,
+        nb_genomes: int
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Build the structured starting point: class 0 persistent, class k-1 cloud.
 
-    :param k: number of partitions
-    :param nb_genomes: number of genomes (feature dimension D)
-
-    :return: initial modes (k, nb_genomes), dispersions (k, nb_genomes) and proportions (k,)
+    :param k: Number of partitions.
+    :param nb_genomes: Number of genomes (feature dimension D).
+    :return: Initial centers (k, nb_genomes), dispersions (k, nb_genomes) and proportions (k,).
     """
     p = float(format(1.0 / k, ".12g"))
     proportions = np.array([p] * (k - 1) + [1.0 - p * (k - 1)], dtype=float)

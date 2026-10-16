@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 # default libraries
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 # installed libraries
@@ -9,24 +10,24 @@ import numpy as np
 import scipy.sparse as sp
 
 # local libraries
+from ppanggolin.genome import Organism
 from ppanggolin.pangenome import Pangenome
 
 
 @dataclass
 class NemIndex:
-    """
-    NEM's input for a set of genomes, before it is made dense
+    """NEM's input for a set of genomes, before it is made dense.
 
-    :param org_names: genome names, one per column
-    :param fam_names: gene family names, one per row of `presence`
-    :param presence: families x genomes presence matrix
-    :param coverage: edges x genomes gene-pair counts
-    :param edge_src: row of each edge's source family
-    :param edge_tgt: row of each edge's target family
+    :param org_names: Genome names, one per column.
+    :param fam_names: Gene family names, one per row of `presence`.
+    :param presence: Families x genomes presence matrix.
+    :param coverage: Edges x genomes gene-pair counts.
+    :param edge_src: Row of each edge's source family.
+    :param edge_tgt: Row of each edge's target family.
     """
 
-    org_names: list
-    fam_names: list
+    org_names: list[str]
+    fam_names: list[str]
     presence: sp.csr_matrix
     coverage: sp.csr_matrix
     edge_src: np.ndarray
@@ -67,11 +68,10 @@ class NemInput:
         return beta * (self.nb_families / self.edges_weight)
 
 
-def ordered_organisms(organisms) -> list:
-    """
-    Genomes in a stable, process-independent order.
-    :param organisms: genomes to order
-    :return: the genomes sorted by name
+def ordered_organisms(organisms: Iterable[Organism]) -> list[Organism]:
+    """Sort genomes in a stable, process-independent order.
+    :param organisms: Genomes to order.
+    :return: The genomes sorted by name.
     """
     return sorted(organisms, key=lambda org: org.name)
 
@@ -152,15 +152,14 @@ def build_nem_index(pangenome: Pangenome) -> NemIndex:
     )
 
 
-def subset_nem_index(index: NemIndex, genomes) -> NemIndex:
-    """
-    Restrict an index to some of its genomes
+def subset_nem_index(index: NemIndex, genomes: Iterable[str]) -> NemIndex:
+    """Restrict an index to some of its genomes.
 
-    :param index: index to slice
-    :param genomes: names of the genomes to keep
-
-    :return: the index of these genomes, without the families and edges they do not have
+    :param index: Index to slice.
+    :param genomes: Names of the genomes to keep.
+    :return: The index of these genomes, without the families and edges they do not have.
     """
+    genomes = list(genomes)
     column = {name: i for i, name in enumerate(index.org_names)}
     cols = np.sort(
         np.fromiter(
