@@ -430,11 +430,12 @@ def check_pangenome_former_partition(pangenome: Pangenome, force: bool = False):
         erase_pangenome(pangenome, partition=True)
 
 
-def _record_parameters(pangenome: Pangenome, options: PartitionOptions):
+def _record_parameters(pangenome: Pangenome, options: PartitionOptions, k: int):
     """Store the partition parameters in the pangenome.
 
     :param pangenome: Pangenome being partitioned.
     :param options: Partition parameters.
+    :param k: Number of partitions used, estimated or given.
     """
     parameters = {
         "beta": options.beta,
@@ -446,14 +447,14 @@ def _record_parameters(pangenome: Pangenome, options: PartitionOptions):
     if pangenome.number_of_organisms > options.chunk_size:
         parameters["chunk_size"] = options.chunk_size
     parameters["# computed nb of partitions"] = options.k < 2
-    # the k initially given by the user
     parameters["nb_of_partitions"] = options.k
+    parameters["# final nb of partitions"] = k
+    parameters["krange"] = options.krange
     pangenome.parameters["partition"] = parameters
 
 
 def _partition_in_chunks(
     index: NemIndex,
-    families: list[str],
     k: int,
     options: PartitionOptions,
     cpu: int,
@@ -462,7 +463,6 @@ def _partition_in_chunks(
     """Partition chunks of genomes until every family has a validated label.
 
     :param index: NEM index of all the genomes.
-    :param families: Names of all the gene families.
     :param k: Number of partitions.
     :param options: Partition parameters.
     :param cpu: Number of available CPUs.
@@ -471,7 +471,7 @@ def _partition_in_chunks(
     """
     genomes = index.org_names
     rng = random.Random(options.seed)
-    votes = ChunkVotes(families, len(genomes), options.chunk_size)
+    votes = ChunkVotes(index.fam_names, len(genomes), options.chunk_size)
     times_drawn = Counter({genome: 0 for genome in genomes})
     min_draws = len(genomes) / options.chunk_size
     nb_chunks = 0
@@ -493,7 +493,7 @@ def _partition_in_chunks(
                     bar.update()
         min_draws += 1  # if families are left to validate, draw more chunks
         logger.debug(
-            f"There are {len(votes.validated)} validated families out of {len(families)} families."
+            f"There are {len(votes.validated)} validated families out of {len(index.fam_names)} families."
         )
     return votes.labels(), nb_chunks
 
@@ -558,7 +558,6 @@ def partition(
             f"genomes used) to robustly partition the graph"
         )
 
-    _record_parameters(pangenome, options)
     k = options.k
     if k < 2:
         logger.info("Estimating the optimal number of partitions...")
@@ -576,16 +575,12 @@ def partition(
             disable_bar,
         )
         logger.info(f"The number of partitions has been evaluated at {k}")
-    pangenome.parameters["partition"]["# final nb of partitions"] = k
-    pangenome.parameters["partition"]["krange"] = options.krange
+    _record_parameters(pangenome, options, k)
 
     start = time.time()
     logger.info("Partitioning...")
     if options.chunk_size < nb_genomes:
-        families = [fam.name for fam in pangenome.gene_families]
-        labels, nb_chunks = _partition_in_chunks(
-            index, families, k, options, cpu, disable_bar
-        )
+        labels, nb_chunks = _partition_in_chunks(index, k, options, cpu, disable_bar)
         logger.info(
             f"Did {nb_chunks} partitioning with chunks of size {options.chunk_size} among "
             f"{nb_genomes} genomes in {round(time.time() - start, 2)} seconds."
