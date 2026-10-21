@@ -28,7 +28,7 @@ from ppanggolin.nem.partition import (
     ChunkVotes,
     NemSettings,
     draw_chunks,
-    _keep_index,
+    keep_index,
     evaluate_nb_partitions,
     inherited_index,
     partition_chunk,
@@ -597,7 +597,7 @@ def _partition_samples(
     :param disable_bar: Disable the progress bar.
     """
     with get_context("fork").Pool(
-        cpu, initializer=_keep_index, initargs=(nem_index,)
+        cpu, initializer=keep_index, initargs=(nem_index,)
     ) as pool:
         logger.info(" Partitioning all samples...")
         with tqdm(
