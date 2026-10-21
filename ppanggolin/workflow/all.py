@@ -18,7 +18,6 @@ from ppanggolin.utils import (
 )
 from ppanggolin.annotate.annotate import (
     annotate_pangenome,
-    determine_genetic_code_from_annotation_files,
     read_annotations,
     get_gene_sequences_from_fastas,
     check_annotate_args,
@@ -263,7 +262,7 @@ def launch_workflow(
         make_rarefaction_curve(
             pangenome,
             RarefactionOptions.from_args(args.rarefaction),
-            args.output,
+            output=args.output,
             cpu=args.rarefaction.cpu,
             disable_bar=args.disable_prog_bar,
         )

@@ -162,9 +162,9 @@ def _label_families(membership: np.ndarray, k: int) -> list[str]:
 
 def solve(
     nem_input: NemInput,
-    beta: float = 2.5,
-    free_dispersion: bool = False,
-    k: int = 3,
+    beta: float,
+    free_dispersion: bool,
+    k: int,
     max_iter: int = 100,
 ) -> NemResult:
     """Partition the gene families of an input.
@@ -188,10 +188,10 @@ def solve(
 
 def score(
     nem_input: NemInput,
-    beta: float = 0.0,
-    free_dispersion: bool = False,
-    k: int = 3,
-    max_iter: int = 100,
+    beta: float,
+    free_dispersion: bool,
+    k: int,
+    max_iter: int = 10,
 ) -> KScore:
     """Fit NEM with k partitions and report how well it fits.
 

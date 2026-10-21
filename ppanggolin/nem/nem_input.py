@@ -222,7 +222,7 @@ def _smoothing_graph(
     return graph, total_edges_weight / 2
 
 
-def build_nem_input(index: NemIndex, max_degree_smoothing: int = 10) -> NemInput:
+def build_nem_input(index: NemIndex, max_degree_smoothing: int) -> NemInput:
     """Build NEM's input for all the genomes of an index.
 
     :param index: Index of the genomes to partition.
