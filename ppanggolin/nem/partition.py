@@ -7,9 +7,9 @@ import math
 import os
 import random
 import time
-from dataclasses import dataclass, field
+from collections import Counter, defaultdict
+from dataclasses import dataclass
 from multiprocessing import get_context
-from collections import defaultdict, Counter
 from pathlib import Path
 
 # installed libraries
@@ -55,37 +55,53 @@ def inherited_index() -> NemIndex:
 
 
 @dataclass
-class PartitionOptions:
-    """Parameters of the partition command.
+class NemSettings:
+    """Settings of every NEM run.
 
-    :param output: Output directory, needed to draw the ICL curve.
     :param beta: Strength of the smoothing using the graph topology. 0 deactivates it.
     :param max_degree_smoothing: Maximum degree of a family included in the smoothing.
     :param free_dispersion: Free dispersion around each partition's centroid per genome.
+    """
+
+    beta: float
+    max_degree_smoothing: int
+    free_dispersion: bool
+
+
+@dataclass
+class PartitionOptions(NemSettings):
+    """Parameters of the partition command.
+
     :param chunk_size: Partition in chunks of this many genomes when there are more.
     :param k: Number of partitions. Under 2, it is estimated.
     :param krange: Range of k values tested when estimating k.
     :param icl_margin: Margin used to select the lowest k maximizing the ICL.
-    :param draw_icl: Draw the ICL curve of the tested k values.
-    :param cpu: Number of available CPUs.
     :param seed: Seed used to generate random numbers.
-    :param force: Overwrite a former partition.
-    :param disable_bar: Disable the progress bars.
     """
 
-    output: Path | None = None
-    beta: float = 2.5
-    max_degree_smoothing: int = 10
-    free_dispersion: bool = False
-    chunk_size: int = 500
-    k: int = -1
-    krange: list[int] = field(default_factory=lambda: [3, 20])
-    icl_margin: float = 0.05
-    draw_icl: bool = False
-    cpu: int = 1
-    seed: int = 42
-    force: bool = False
-    disable_bar: bool = False
+    chunk_size: int
+    k: int
+    krange: list[int]
+    icl_margin: float
+    seed: int
+
+    @classmethod
+    def from_args(cls, args: argparse.Namespace) -> "PartitionOptions":
+        """Read the parameters from the arguments of the partition command.
+
+        :param args: Arguments of the partition command.
+        :return: The parameters.
+        """
+        return cls(
+            beta=args.beta,
+            max_degree_smoothing=args.max_degree_smoothing,
+            free_dispersion=args.free_dispersion,
+            chunk_size=args.chunk_size,
+            k=args.nb_of_partitions,
+            krange=args.krange,
+            icl_margin=args.ICL_margin,
+            seed=args.seed,
+        )
 
 
 class ChunkVotes:
@@ -166,34 +182,26 @@ def draw_chunks(
     return chunks
 
 
-def partition_chunk(
-    chunk: NemIndex,
-    k: int,
-    beta: float = 2.5,
-    max_degree_smoothing: int = 10,
-    free_dispersion: bool = False,
-) -> NemResult:
+def partition_chunk(chunk: NemIndex, k: int, nem: NemSettings) -> NemResult:
     """Partition the gene families of one chunk of genomes.
 
     :param chunk: NEM index of the chunk.
     :param k: Number of partitions.
-    :param beta: Strength of smoothing using graph topology during partitioning. 0 deactivates spatial smoothing.
-    :param max_degree_smoothing: Maximum degree of a family included in the smoothing process.
-    :param free_dispersion: Free dispersion per genome rather than shared.
+    :param nem: NEM settings.
     :return: The partitions of the chunk's families.
     """
-    nem_input = build_nem_input(chunk, max_degree_smoothing)
-    return solve(nem_input, nem_input.scaled_beta(beta), free_dispersion, k)
+    nem_input = build_nem_input(chunk, nem.max_degree_smoothing)
+    return solve(nem_input, nem_input.scaled_beta(nem.beta), nem.free_dispersion, k)
 
 
-def _partition_chunk_worker(args: tuple[list[str], int, float, int, bool]) -> NemResult:
+def _partition_chunk_worker(args: tuple[list[str], int, NemSettings]) -> NemResult:
     """Partition one chunk of the index the pool inherited.
 
-    :param args: (genomes of the chunk, k, beta, max_degree_smoothing, free_dispersion).
+    :param args: (genomes of the chunk, k, NEM settings).
     :return: The partitions of the chunk's families.
     """
-    genomes, *params = args
-    return partition_chunk(subset_nem_index(inherited_index(), genomes), *params)
+    genomes, k, nem = args
+    return partition_chunk(subset_nem_index(inherited_index(), genomes), k, nem)
 
 
 def _score_k_worker(args: tuple[int, bool, int]) -> KScore:
@@ -409,7 +417,7 @@ def check_pangenome_former_partition(pangenome: Pangenome, force: bool = False):
     """Check the pangenome for a former partition and erase it if allowed.
 
     :param pangenome: Pangenome object.
-    :param force: Allow to force write on Pangenome file.
+    :param force: Allow to overwrite the pangenome file.
     :raises Exception: If the pangenome is already partitioned and force is False.
     """
     if pangenome.status["partitioned"] == "inFile" and not force:
@@ -444,7 +452,12 @@ def _record_parameters(pangenome: Pangenome, options: PartitionOptions):
 
 
 def _partition_in_chunks(
-    index: NemIndex, families: list[str], k: int, options: PartitionOptions
+    index: NemIndex,
+    families: list[str],
+    k: int,
+    options: PartitionOptions,
+    cpu: int,
+    disable_bar: bool,
 ) -> tuple[dict[str, str], int]:
     """Partition chunks of genomes until every family has a validated label.
 
@@ -452,6 +465,8 @@ def _partition_in_chunks(
     :param families: Names of all the gene families.
     :param k: Number of partitions.
     :param options: Partition parameters.
+    :param cpu: Number of available CPUs.
+    :param disable_bar: Disable the progress bar.
     :return: Label of each family, and the number of chunks partitioned.
     """
     genomes = index.org_names
@@ -463,24 +478,15 @@ def _partition_in_chunks(
     while not votes.done:
         chunks = draw_chunks(genomes, options.chunk_size, times_drawn, min_draws, rng)
         nb_chunks += len(chunks)
-        args = (
-            (
-                chunk,
-                k,
-                options.beta,
-                options.max_degree_smoothing,
-                options.free_dispersion,
-            )
-            for chunk in chunks
-        )
+        args = ((chunk, k, options) for chunk in chunks)
         logger.info("Launching NEM")
         with get_context("fork").Pool(
-            options.cpu, initializer=keep_index, initargs=(index,)
+            cpu, initializer=keep_index, initargs=(index,)
         ) as pool:
             with tqdm(
                 total=len(chunks),
                 unit=" samples partitioned",
-                disable=options.disable_bar,
+                disable=disable_bar,
             ) as bar:
                 for result in pool.imap_unordered(_partition_chunk_worker, args):
                     votes.add(result.partitions)
@@ -492,20 +498,16 @@ def _partition_in_chunks(
     return votes.labels(), nb_chunks
 
 
-def _partition_whole(
-    index: NemIndex, k: int, options: PartitionOptions
-) -> dict[str, str]:
+def _partition_whole(index: NemIndex, k: int, nem: NemSettings) -> dict[str, str]:
     """Partition all the genomes at once.
 
     :param index: NEM index of all the genomes.
     :param k: Number of partitions.
-    :param options: Partition parameters.
+    :param nem: NEM settings.
     :raises Exception: If NEM labels no family.
     :return: Label of each family.
     """
-    result = partition_chunk(
-        index, k, options.beta, options.max_degree_smoothing, options.free_dispersion
-    )
+    result = partition_chunk(index, k, nem)
     if not result.partitions:
         raise Exception(
             "Statistical partitioning does not work on your data. "
@@ -514,26 +516,38 @@ def _partition_whole(
     return result.partitions
 
 
-def partition(pangenome: Pangenome, options: PartitionOptions | None = None):
+def partition(
+    pangenome: Pangenome,
+    options: PartitionOptions,
+    output: Path | None = None,
+    draw_icl: bool = False,
+    cpu: int = 1,
+    force: bool = False,
+    disable_bar: bool = False,
+):
     """Partition the gene families of a pangenome.
 
     :param pangenome: Pangenome with gene families and neighbors graph.
     :param options: Partition parameters.
+    :param output: Output directory, needed to draw the ICL curve.
+    :param draw_icl: Draw the ICL curve of the tested k values.
+    :param cpu: Number of available CPUs.
+    :param force: Overwrite a former partition.
+    :param disable_bar: Disable the progress bars.
     :raises ValueError: If the ICL curve is asked for without an output directory.
     """
-    options = PartitionOptions() if options is None else options
-    if options.draw_icl and options.output is None:
+    if draw_icl and output is None:
         raise ValueError(
             "Combination of option impossible: "
             "You asked to draw the ICL curves but did not provide an output directory!"
         )
-    check_pangenome_former_partition(pangenome, options.force)
+    check_pangenome_former_partition(pangenome, force)
     check_pangenome_info(
         pangenome,
         need_annotations=True,
         need_families=True,
         need_graph=True,
-        disable_bar=options.disable_bar,
+        disable_bar=disable_bar,
     )
     index = build_nem_index(pangenome)
     nb_genomes = len(index.org_names)
@@ -550,16 +564,16 @@ def partition(pangenome: Pangenome, options: PartitionOptions | None = None):
         logger.info("Estimating the optimal number of partitions...")
         k = evaluate_nb_partitions(
             index,
-            options.output,
+            output,
             options.max_degree_smoothing,
             options.free_dispersion,
             options.chunk_size,
             options.krange,
             options.icl_margin,
-            options.draw_icl,
-            options.cpu,
+            draw_icl,
+            cpu,
             options.seed,
-            options.disable_bar,
+            disable_bar,
         )
         logger.info(f"The number of partitions has been evaluated at {k}")
     pangenome.parameters["partition"]["# final nb of partitions"] = k
@@ -569,7 +583,9 @@ def partition(pangenome: Pangenome, options: PartitionOptions | None = None):
     logger.info("Partitioning...")
     if options.chunk_size < nb_genomes:
         families = [fam.name for fam in pangenome.gene_families]
-        labels, nb_chunks = _partition_in_chunks(index, families, k, options)
+        labels, nb_chunks = _partition_in_chunks(
+            index, families, k, options, cpu, disable_bar
+        )
         logger.info(
             f"Did {nb_chunks} partitioning with chunks of size {options.chunk_size} among "
             f"{nb_genomes} genomes in {round(time.time() - start, 2)} seconds."
@@ -597,21 +613,12 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
     partition(
         pangenome,
-        PartitionOptions(
-            output=args.output,
-            beta=args.beta,
-            max_degree_smoothing=args.max_degree_smoothing,
-            free_dispersion=args.free_dispersion,
-            chunk_size=args.chunk_size,
-            k=args.nb_of_partitions,
-            krange=args.krange,
-            icl_margin=args.ICL_margin,
-            draw_icl=args.draw_ICL,
-            cpu=args.cpu,
-            seed=args.seed,
-            force=args.force,
-            disable_bar=args.disable_prog_bar,
-        ),
+        PartitionOptions.from_args(args),
+        output=args.output,
+        draw_icl=args.draw_ICL,
+        cpu=args.cpu,
+        force=args.force,
+        disable_bar=args.disable_prog_bar,
     )
     logger.debug("Write partition in pangenome")
     write_pangenome(
