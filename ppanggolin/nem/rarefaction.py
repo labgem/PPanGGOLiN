@@ -72,7 +72,7 @@ class RarefactionOptions(NemSettings):
     :param krange: Range of k values tested when estimating k. Negative bounds take the pangenome's k.
     :param seed: Seed used to generate random numbers.
     :param depth: Number of samples drawn at each sample size.
-    :param min_sampling: Smallest sample size.
+    :param min_sampling: Smallest sample size (minus one for the range).
     :param max_sampling: Largest sample size.
     :param reestimate_k: Estimate k again for each sample.
     :param soft_core: Soft core threshold.
@@ -154,11 +154,15 @@ def partition_sample(
     if k < 3:
         k = evaluate_nb_partitions(
             index=sample,
+            output=None,
             max_degree_smoothing=options.max_degree_smoothing,
             free_dispersion=options.free_dispersion,
             chunk_size=options.chunk_size,
             krange=options.krange,
+            draw_icl=False,
+            cpu=1,  # already in a pool worker
             seed=options.seed,
+            disable_bar=True,
         )
 
     if len(genomes) <= options.chunk_size:
@@ -425,7 +429,7 @@ def _summary_traces(column: str, summary: dict[str, Series]) -> list[go.Scatter]
     ]
 
 
-def draw_curve(output: Path, rows: list[dict], max_sampling: int = 10):
+def draw_curve(output: Path, rows: list[dict], max_sampling: int):
     """Write the rarefaction table, fit Heaps' law on each column and draw the curves.
 
     :param output: Output directory.
@@ -621,9 +625,10 @@ def _partition_samples(
 def make_rarefaction_curve(
     pangenome: Pangenome,
     options: RarefactionOptions,
+    *,
     output: Path,
-    cpu: int = 1,
-    disable_bar: bool = False,
+    cpu: int,
+    disable_bar: bool,
 ):
     """Partition random samples of genomes of growing size and draw the rarefaction curves.
 
@@ -657,10 +662,12 @@ def make_rarefaction_curve(
             logger.info("Estimating the number of partitions...")
             k = evaluate_nb_partitions(
                 index=nem_index,
+                output=None,
                 max_degree_smoothing=options.max_degree_smoothing,
                 free_dispersion=options.free_dispersion,
                 chunk_size=options.chunk_size,
                 krange=krange,
+                draw_icl=False,
                 cpu=cpu,
                 seed=options.seed,
                 disable_bar=disable_bar,
@@ -708,7 +715,7 @@ def launch(args: argparse.Namespace):
     make_rarefaction_curve(
         pangenome,
         RarefactionOptions.from_args(args),
-        args.output,
+        output=args.output,
         cpu=args.cpu,
         disable_bar=args.disable_prog_bar,
     )

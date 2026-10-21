@@ -212,7 +212,7 @@ def _score_k_worker(args: tuple[int, bool, int]) -> KScore:
     """
     max_degree_smoothing, free_dispersion, k = args
     nem_input = build_nem_input(inherited_index(), max_degree_smoothing)
-    return score(nem_input, 0, free_dispersion, k, max_iter=10)
+    return score(nem_input, 0, free_dispersion, k)
 
 
 def _score_ks(
@@ -235,7 +235,7 @@ def _score_ks(
     """
     if cpu <= 1:  # also the case inside rarefaction's daemonic workers
         nem_input = build_nem_input(index, max_degree_smoothing)
-        return [score(nem_input, 0, free_dispersion, k, max_iter=10) for k in ks]
+        return [score(nem_input, 0, free_dispersion, k) for k in ks]
 
     k_scores = []
     args = ((max_degree_smoothing, free_dispersion, k) for k in ks)
@@ -365,16 +365,17 @@ def _draw_icl_curve(
 
 def evaluate_nb_partitions(
     index: NemIndex,
-    output: Path | None = None,
-    max_degree_smoothing: int = 10,
-    free_dispersion: bool = False,
-    chunk_size: int = 500,
-    krange: list[int] | None = None,
+    *,
+    output: Path | None,
+    max_degree_smoothing: int,
+    free_dispersion: bool,
+    chunk_size: int,
+    krange: list[int] | None,
     icl_margin: float = 0.05,
-    draw_icl: bool = False,
-    cpu: int = 1,
-    seed: int = 42,
-    disable_bar: bool = False,
+    draw_icl: bool,
+    cpu: int,
+    seed: int,
+    disable_bar: bool,
 ) -> int:
     """Estimate the number of partitions of the pangenome.
 
@@ -519,11 +520,12 @@ def _partition_whole(index: NemIndex, k: int, nem: NemSettings) -> dict[str, str
 def partition(
     pangenome: Pangenome,
     options: PartitionOptions,
-    output: Path | None = None,
-    draw_icl: bool = False,
-    cpu: int = 1,
-    force: bool = False,
-    disable_bar: bool = False,
+    *,
+    output: Path | None,
+    draw_icl: bool,
+    cpu: int,
+    force: bool,
+    disable_bar: bool,
 ):
     """Partition the gene families of a pangenome.
 
@@ -563,16 +565,16 @@ def partition(
         logger.info("Estimating the optimal number of partitions...")
         k = evaluate_nb_partitions(
             index,
-            output,
-            options.max_degree_smoothing,
-            options.free_dispersion,
-            options.chunk_size,
-            options.krange,
-            options.icl_margin,
-            draw_icl,
-            cpu,
-            options.seed,
-            disable_bar,
+            output=output,
+            max_degree_smoothing=options.max_degree_smoothing,
+            free_dispersion=options.free_dispersion,
+            chunk_size=options.chunk_size,
+            krange=options.krange,
+            icl_margin=options.icl_margin,
+            draw_icl=draw_icl,
+            cpu=cpu,
+            seed=options.seed,
+            disable_bar=disable_bar,
         )
         logger.info(f"The number of partitions has been evaluated at {k}")
     _record_parameters(pangenome, options, k)
