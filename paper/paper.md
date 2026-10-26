@@ -47,7 +47,7 @@ affiliations:
   index: 3
   ror: 05qdnns64
 date: 23 June 2026
-bibliography: paper.bib~
+bibliography: paper.bib
 ---
 
 # Summary
