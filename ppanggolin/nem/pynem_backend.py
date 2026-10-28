@@ -36,6 +36,18 @@ def _build_param_init(K, n_org):
     return centers, dispersions, proportions
 
 
+def set_threads(nb_threads: int):
+    """Let pynem's numba kernels use at most `nb_threads` threads in this process.
+
+    :param nb_threads: Number of threads.
+    """
+    try:
+        import numba
+    except ImportError:
+        return
+    numba.set_num_threads(max(1, min(nb_threads, numba.config.NUMBA_NUM_THREADS)))
+
+
 def solve(
     presence: np.ndarray,
     graph: nx.DiGraph,

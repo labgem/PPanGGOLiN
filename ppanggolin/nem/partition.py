@@ -24,7 +24,7 @@ import plotly.graph_objs as go
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
-from ppanggolin.nem.pynem_backend import solve
+from ppanggolin.nem.pynem_backend import set_threads, solve
 
 pan = Pangenome()
 samples = []
@@ -256,7 +256,9 @@ def evaluate_nb_partitions(
             unit="Number of partitions",
             disable=disable_bar,
         )
-        with get_context("fork").Pool(processes=cpu) as p:
+        with get_context("fork").Pool(
+            processes=cpu, initializer=set_threads, initargs=(1,)
+        ) as p:
             for result in p.imap_unordered(nem_single, args_partitionning):
                 all_log_likelihood.append(result)
                 bar.update()
@@ -560,7 +562,9 @@ def partition(
                 args.append((i, kval, beta, sm_degree, free_dispersion, seed, init))
 
             logging.getLogger("PPanGGOLiN").info("Launching NEM")
-            with get_context("fork").Pool(processes=cpu) as p:
+            with get_context("fork").Pool(
+                processes=cpu, initializer=set_threads, initargs=(1,)
+            ) as p:
                 # launch partitioning
                 bar = tqdm(
                     range(len(args)), unit=" samples partitioned", disable=disable_bar

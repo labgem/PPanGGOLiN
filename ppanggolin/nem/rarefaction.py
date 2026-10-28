@@ -25,6 +25,7 @@ import scipy.optimize as optimization
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info
+from ppanggolin.nem.pynem_backend import set_threads
 import ppanggolin.nem.partition as ppp
 
 # import this way to use the global variable pangenome defined in ppanggolin.nem.partition
@@ -683,7 +684,9 @@ def make_rarefaction_curve(
             )
         )
 
-    with get_context("fork").Pool(processes=cpu) as p:
+    with get_context("fork").Pool(
+        processes=cpu, initializer=set_threads, initargs=(1,)
+    ) as p:
         # launch partitioning
         logging.getLogger("PPanGGOLiN").info(" Partitioning all samples...")
         bar = tqdm(range(len(args)), unit="samples partitioned", disable=disable_bar)
