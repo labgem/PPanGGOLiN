@@ -5,6 +5,7 @@ import os
 from dataclasses import dataclass
 
 # installed libraries
+import numba
 import numpy as np
 from pynem import NEM
 from threadpoolctl import threadpool_limits
@@ -12,13 +13,8 @@ from threadpoolctl import threadpool_limits
 # local libraries
 from ppanggolin.nem.nem_input import NemInput
 
-try:
-    import numba
-except ImportError:
-    numba = None
-
 # pynem 0.6.1's parallel kernels run on OpenMP, which kills workers forked after them
-if numba is not None and "NUMBA_THREADING_LAYER" not in os.environ:
+if "NUMBA_THREADING_LAYER" not in os.environ:
     numba.config.THREADING_LAYER = "forksafe"
 
 
@@ -27,8 +23,7 @@ def set_threads(nb_threads: int):
 
     :param nb_threads: Number of threads.
     """
-    if numba is not None:
-        numba.set_num_threads(max(1, min(nb_threads, numba.config.NUMBA_NUM_THREADS)))
+    numba.set_num_threads(max(1, min(nb_threads, numba.config.NUMBA_NUM_THREADS)))
     threadpool_limits(nb_threads)
 
 
