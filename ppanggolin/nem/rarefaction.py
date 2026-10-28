@@ -23,7 +23,12 @@ from tqdm import tqdm
 
 # local libraries
 from ppanggolin.formats import check_pangenome_info
-from ppanggolin.nem.nem_input import NemIndex, build_nem_index, subset_nem_index
+from ppanggolin.nem.nem_input import (
+    NemIndex,
+    build_nem_index,
+    ordered_organisms,
+    subset_nem_index,
+)
 from ppanggolin.nem.partition import (
     ChunkVotes,
     NemSettings,
@@ -677,7 +682,7 @@ def make_rarefaction_curve(
     logger.info("Extracting samples ...")
     rng = random.Random(options.seed)
     samples = _draw_samples(
-        list(pangenome.organisms),
+        ordered_organisms(pangenome.organisms),
         options.min_sampling,
         max_sampling,
         options.depth,
