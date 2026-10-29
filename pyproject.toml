@@ -49,6 +49,7 @@ dependencies = [
     "pynem>=0.6",
     "pyroaring>=1.0.0,<2.0.0",
     "gb-io>=0.4.0",
+    "threadpoolctl>=3",
 ]
 
 license = {file="LICENSE.txt"}
