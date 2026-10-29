@@ -252,13 +252,14 @@ def _score_ks(
     if cpu <= 1:
         return [score(nem_input, 0, free_dispersion, k) for k in ks]
 
-    k_scores = []
-    args = ((free_dispersion, k) for k in ks)
+    # scored before the fork, so the workers share the compiled kernels it loads
+    k_scores = [score(nem_input, 0, free_dispersion, ks[0])]
+    args = ((free_dispersion, k) for k in ks[1:])
     with get_context("fork").Pool(
         cpu, initializer=_keep_input, initargs=(nem_input,)
     ) as pool:
         with tqdm(
-            total=len(ks), unit="Number of partitions", disable=disable_bar
+            total=len(ks), initial=1, unit="Number of partitions", disable=disable_bar
         ) as bar:
             for k_score in pool.imap_unordered(_score_k_worker, args):
                 k_scores.append(k_score)
