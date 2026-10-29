@@ -22,6 +22,7 @@ from ppanggolin.formats import check_pangenome_info, erase_pangenome, write_pang
 from ppanggolin.nem.model import KScore, NemResult, score, set_threads, solve
 from ppanggolin.nem.nem_input import (
     NemIndex,
+    NemInput,
     build_nem_index,
     build_nem_input,
     subset_nem_index,
@@ -53,6 +54,20 @@ def inherited_index() -> NemIndex:
     :return: The index passed to the pool's initializer.
     """
     return _worker_index
+
+
+# the NEM input a k-scoring worker inherited at fork, set by _keep_input
+_worker_input: NemInput | None = None
+
+
+def _keep_input(nem_input: NemInput):
+    """Keep the NEM input this pool worker inherited at fork, and run its NEM on one thread.
+
+    :param nem_input: Input passed to the pool's initializer.
+    """
+    global _worker_input
+    _worker_input = nem_input
+    set_threads(1)
 
 
 @dataclass
@@ -205,15 +220,14 @@ def _partition_chunk_worker(args: tuple[list[str], int, NemSettings]) -> NemResu
     return partition_chunk(subset_nem_index(inherited_index(), genomes), k, nem)
 
 
-def _score_k_worker(args: tuple[int, bool, int]) -> KScore:
-    """Score one k on the index the pool inherited.
+def _score_k_worker(args: tuple[bool, int]) -> KScore:
+    """Score one k on the NEM input the pool inherited.
 
-    :param args: (max_degree_smoothing, free_dispersion, k).
+    :param args: (free_dispersion, k).
     :return: The score of k.
     """
-    max_degree_smoothing, free_dispersion, k = args
-    nem_input = build_nem_input(inherited_index(), max_degree_smoothing)
-    return score(nem_input, 0, free_dispersion, k)
+    free_dispersion, k = args
+    return score(_worker_input, 0, free_dispersion, k)
 
 
 def _score_ks(
@@ -234,14 +248,14 @@ def _score_ks(
     :param disable_bar: Disable the progress bar.
     :return: One score per k.
     """
+    nem_input = build_nem_input(index, max_degree_smoothing)
     if cpu <= 1:
-        nem_input = build_nem_input(index, max_degree_smoothing)
         return [score(nem_input, 0, free_dispersion, k) for k in ks]
 
     k_scores = []
-    args = ((max_degree_smoothing, free_dispersion, k) for k in ks)
+    args = ((free_dispersion, k) for k in ks)
     with get_context("fork").Pool(
-        cpu, initializer=keep_index, initargs=(index,)
+        cpu, initializer=_keep_input, initargs=(nem_input,)
     ) as pool:
         with tqdm(
             total=len(ks), unit="Number of partitions", disable=disable_bar
