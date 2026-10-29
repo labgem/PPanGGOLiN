@@ -1,12 +1,22 @@
 #!/usr/bin/env python3
 
 # default libraries
+import os
 from typing import Tuple, Union
 
 # installed libraries
 import networkx as nx
 import numpy as np
 from pynem import NEM
+
+try:
+    import numba
+except ImportError:
+    numba = None
+
+# pynem 0.6.1's parallel kernels run on OpenMP, which kills workers forked after them
+if numba is not None and "NUMBA_THREADING_LAYER" not in os.environ:
+    numba.config.THREADING_LAYER = "forksafe"
 
 
 def _build_param_init(K, n_org):
@@ -41,11 +51,8 @@ def set_threads(nb_threads: int):
 
     :param nb_threads: Number of threads.
     """
-    try:
-        import numba
-    except ImportError:
-        return
-    numba.set_num_threads(max(1, min(nb_threads, numba.config.NUMBA_NUM_THREADS)))
+    if numba is not None:
+        numba.set_num_threads(max(1, min(nb_threads, numba.config.NUMBA_NUM_THREADS)))
 
 
 def solve(
