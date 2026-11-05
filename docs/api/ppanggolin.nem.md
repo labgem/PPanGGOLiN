@@ -2,6 +2,24 @@
 
 ## Submodules
 
+## ppanggolin.nem.model module
+
+```{eval-rst}
+.. automodule:: ppanggolin.nem.model
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
+## ppanggolin.nem.nem_input module
+
+```{eval-rst}
+.. automodule:: ppanggolin.nem.nem_input
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
 ## ppanggolin.nem.partition module
 
 ```{eval-rst}

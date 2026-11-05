@@ -3,7 +3,6 @@ import logging
 
 import ppanggolin.annotate.annotate as annotate
 import ppanggolin.annotate.synta as synta
-import ppanggolin.nem.partition as partition
 from ppanggolin.formats import writeFlatPangenome
 import ppanggolin.formats.writeAnnotations as writeAnnot
 from ppanggolin.pangenome import Pangenome
@@ -14,8 +13,6 @@ def reset_globals():
     """Reset ppanggolin global variables before each test."""
     annotate.ctg_counter = 0
     synta.contig_counter = 0
-    partition.samples = []
-    partition.pan = Pangenome()
     writeFlatPangenome.pan = Pangenome()
     writeFlatPangenome.needAnnotations = False
     writeFlatPangenome.needFamilies = False
