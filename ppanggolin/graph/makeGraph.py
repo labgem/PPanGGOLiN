@@ -9,6 +9,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 # local libraries
+from ppanggolin.genome import Contig, Gene
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.formats import read_pangenome, write_pangenome, erase_pangenome
 
@@ -84,6 +85,52 @@ def remove_high_copy_number(pangenome, number):
                 fam.removed = True
 
 
+def _is_fragment_self_link(gene1: Gene, gene2: Gene) -> bool:
+    """Tell whether two genes are pieces of the same fragmented gene.
+
+    Two neighboring genes of the same family, one of them flagged as a fragment, are not
+    linked in the graph: they likely come from a gene split in pieces, not from two neighbor genes.
+
+    :param gene1: First gene
+    :param gene2: Second gene
+    :return: True if the two genes must not be linked
+    """
+    return gene1.family == gene2.family and (gene1.is_fragment or gene2.is_fragment)
+
+
+def add_contig_edges(pangenome: Pangenome, contig: Contig):
+    """Add to the neighbors graph the edges between the consecutive genes of a contig.
+
+    Genes of removed families are skipped, so their neighbors are linked together, and
+    two genes of a fragmented gene are not linked. On a circular contig, the last and
+    the first kept genes are linked under the same rules.
+
+    :param pangenome: Pangenome receiving the edges
+    :param contig: Contig whose genes are linked
+    """
+    first = prev = None
+    for gene in contig.genes:
+        if gene.family is None:
+            raise AttributeError("a Gene does not have a GeneFamily object associated")
+        if gene.family.removed:
+            continue
+        if prev is None:
+            first = gene
+        elif not _is_fragment_self_link(prev, gene):
+            pangenome.add_edge(gene, prev)
+        prev = gene
+
+    # first is None when the contig only has genes of removed families,
+    # and first is prev when a single gene is kept: there is nothing to close then.
+    if (
+        contig.is_circular
+        and first is not None
+        and first is not prev
+        and not _is_fragment_self_link(prev, first)
+    ):
+        pangenome.add_edge(first, prev)
+
+
 def compute_neighbors_graph(
     pangenome: Pangenome,
     remove_copy_number: int = 0,
@@ -115,25 +162,7 @@ def compute_neighbors_graph(
         bar.set_description(f"Processing {org.name}")
         bar.refresh()
         for contig in org.contigs:
-            prev = None
-            for gene in contig.genes:
-                try:
-                    if not gene.family.removed:
-                        if prev is not None and not (
-                            prev.family == gene.family
-                            and (prev.is_fragment or gene.is_fragment)
-                        ):
-                            pangenome.add_edge(gene, prev)
-                        prev = gene
-                except AttributeError:
-                    raise AttributeError(
-                        "a Gene does not have a GeneFamily object associated"
-                    )
-                except Exception:
-                    raise Exception("Unexpected error. Please report on our github.")
-            if prev is not None and contig.is_circular and contig.number_of_genes > 0:
-                # if prev is None, the contig is entirely made of duplicated genes, so no edges are added
-                pangenome.add_edge(contig[0], prev)
+            add_contig_edges(pangenome, contig)
     logging.getLogger("PPanGGOLiN").info("Done making the neighbors graph.")
     pangenome.status["neighborsGraph"] = "Computed"
 
