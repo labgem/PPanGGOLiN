@@ -18,6 +18,7 @@ import plotly.offline as out_plotly
 from tqdm import tqdm
 
 # local libraries
+from ppanggolin.errors import AlreadyComputedError
 from ppanggolin.formats import check_pangenome_info, erase_pangenome, write_pangenome
 from ppanggolin.nem.model import KScore, NemResult, score, set_threads, solve
 from ppanggolin.nem.nem_input import (
@@ -437,10 +438,10 @@ def check_pangenome_former_partition(pangenome: Pangenome, force: bool = False):
 
     :param pangenome: Pangenome object.
     :param force: Allow to overwrite the pangenome file.
-    :raises Exception: If the pangenome is already partitioned and force is False.
+    :raises AlreadyComputedError: If the pangenome is already partitioned and force is False.
     """
     if pangenome.status["partitioned"] == "inFile" and not force:
-        raise Exception(
+        raise AlreadyComputedError(
             "You are trying to partition a pangenome already partitioned."
             " If you REALLY want to do that, "
             "use --force (it will erase partitions and every feature computed from them."
