@@ -296,14 +296,12 @@ def _score_ks(
     k_scores = [score(nem_input, 0, free_dispersion, ks[0])]
     args = ((free_dispersion, k) for k in ks[1:])
     with (
-        get_context("fork").Pool(
-            cpu, initializer=_keep_input, initargs=(nem_input,)
-        ) as pool,
+        worker_pool(cpu, _keep_input, (nem_input,)) as pool,
         tqdm(
             total=len(ks), initial=1, unit="Number of partitions", disable=disable_bar
         ) as bar,
     ):
-        for k_score in pool.imap_unordered(_score_k_worker, args):
+        for k_score in unordered(pool, _score_k_worker, args):
             k_scores.append(k_score)
             bar.update()
     return k_scores
