@@ -18,7 +18,7 @@ import plotly.offline as out_plotly
 from tqdm import tqdm
 
 # local libraries
-from ppanggolin.errors import AlreadyComputedError
+from ppanggolin.errors import AlreadyComputedError, PartitioningError
 from ppanggolin.formats import check_pangenome_info, erase_pangenome, write_pangenome
 from ppanggolin.nem.model import KScore, NemResult, score, set_threads, solve
 from ppanggolin.nem.nem_input import (
@@ -524,12 +524,12 @@ def _partition_whole(index: NemIndex, k: int, nem: NemSettings) -> dict[str, str
     :param index: NEM index of all the genomes.
     :param k: Number of partitions.
     :param nem: NEM settings.
-    :raises Exception: If NEM labels no family.
+    :raises PartitioningError: If NEM labels no family.
     :return: Label of each family.
     """
     result = partition_chunk(index, k, nem)
     if not result.partitions:
-        raise Exception(
+        raise PartitioningError(
             "Statistical partitioning does not work on your data. "
             "This usually happens because you used very few (<15) genomes."
         )
