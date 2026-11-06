@@ -9,7 +9,6 @@ import time
 import warnings
 from collections import Counter
 from dataclasses import dataclass, replace
-from multiprocessing import get_context
 from pathlib import Path
 
 # installed libraries
@@ -38,6 +37,8 @@ from ppanggolin.nem.partition import (
     evaluate_nb_partitions,
     inherited_index,
     partition_chunk,
+    unordered,
+    worker_pool,
 )
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir
@@ -611,14 +612,12 @@ def _partition_samples(
         for sample_id in order
     )
     with (
-        get_context("fork").Pool(
-            cpu, initializer=keep_index, initargs=(nem_index,)
-        ) as pool,
+        worker_pool(cpu, keep_index, (nem_index,)) as pool,
         tqdm(
             total=len(samples), unit="samples partitioned", disable=disable_bar
         ) as bar,
     ):
-        for counts, sample_id in pool.imap_unordered(_partition_sample_worker, args):
+        for counts, sample_id in unordered(pool, _partition_sample_worker, args):
             rows[sample_id] = {**counts, **rows[sample_id]}
             bar.update()
 
