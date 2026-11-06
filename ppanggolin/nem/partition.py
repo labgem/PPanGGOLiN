@@ -8,6 +8,9 @@ import os
 import random
 import time
 from collections import Counter, defaultdict
+from collections.abc import Iterator
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from multiprocessing import get_context
 from pathlib import Path
@@ -18,7 +21,7 @@ import plotly.offline as out_plotly
 from tqdm import tqdm
 
 # local libraries
-from ppanggolin.errors import AlreadyComputedError, PartitioningError
+from ppanggolin.errors import AlreadyComputedError, PartitioningError, WorkerDiedError
 from ppanggolin.formats import check_pangenome_info, erase_pangenome, write_pangenome
 from ppanggolin.nem.model import KScore, NemResult, score, set_threads, solve
 from ppanggolin.nem.nem_input import (
@@ -55,6 +58,42 @@ def inherited_index() -> NemIndex:
     :return: The index passed to the pool's initializer.
     """
     return _worker_index
+
+
+def worker_pool(cpu: int, initializer, initargs: tuple) -> ProcessPoolExecutor:
+    """Start a pool of forked workers.
+
+    :param cpu: Number of workers.
+    :param initializer: Called in each worker at its start.
+    :param initargs: Arguments of the initializer, inherited at fork.
+    :return: The pool.
+    """
+    return ProcessPoolExecutor(
+        cpu, mp_context=get_context("fork"), initializer=initializer, initargs=initargs
+    )
+
+
+def unordered(pool: ProcessPoolExecutor, func, args) -> Iterator:
+    """Run func on each argument in the pool.
+
+    :param pool: Pool from worker_pool.
+    :param func: Function to run.
+    :param args: One argument per call.
+    :raises WorkerDiedError: If a worker died.
+    :return: The results, as they finish.
+    """
+    futures = [pool.submit(func, arg) for arg in args]
+    try:
+        for future in as_completed(futures):
+            yield future.result()
+    except BrokenProcessPool as error:
+        raise WorkerDiedError(
+            "A worker process died, possibly killed for lack of memory. "
+            "Lower --cpu or give the job more memory."
+        ) from error
+    finally:  # so that a failure does not wait for the remaining calls
+        for future in futures:
+            future.cancel()
 
 
 # the NEM input a k-scoring worker inherited at fork, set by _keep_input
@@ -501,14 +540,12 @@ def _partition_in_chunks(
         args = ((chunk, k, options) for chunk in chunks)
         logger.info("Launching NEM")
         with (
-            get_context("fork").Pool(
-                cpu, initializer=keep_index, initargs=(index,)
-            ) as pool,
+            worker_pool(cpu, keep_index, (index,)) as pool,
             tqdm(
                 total=len(chunks), unit=" samples partitioned", disable=disable_bar
             ) as bar,
         ):
-            for result in pool.imap_unordered(_partition_chunk_worker, args):
+            for result in unordered(pool, _partition_chunk_worker, args):
                 votes.add(result.partitions)
                 bar.update()
         min_draws += 1  # if families are left to validate, draw more chunks
