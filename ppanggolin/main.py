@@ -26,6 +26,7 @@ from ppanggolin import (
     mod_epilog,
     pan_epilog,
     rgp_epilog,
+    v2_epilog,
     version,
 )
 from ppanggolin.utils import (
@@ -94,7 +95,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="ppanggolin",
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=RawTextHelpFormatterWithDefaults,
-        epilog=epilog + pan_epilog + rgp_epilog + mod_epilog,
+        epilog=epilog + v2_epilog + pan_epilog + rgp_epilog + mod_epilog,
     )
 
     parser.add_argument(
@@ -109,7 +110,7 @@ def build_parser() -> argparse.ArgumentParser:
     for sub_cmd, sub_fct in SUBCOMMAND_TO_SUBPARSER.items():
         sub = sub_fct(subparsers)
         add_common_arguments(sub)
-        sub.epilog = epilog
+        sub.epilog = epilog + v2_epilog
         if sub_cmd not in ["rgp", "spot", "module", "rgp_cluster"]:
             sub.epilog += pan_epilog
         if sub_cmd not in [
