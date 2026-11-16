@@ -81,6 +81,14 @@ def test_rebase_images():
     )
 
 
+def test_rebase_html_images():
+    text = '<p align="center">\n  <img src="docs/_static/logo.png" alt="logo">\n</p>\n<img alt="b" src=\'https://x.org/b.svg\'>'
+    expected = '<p align="center">\n  <img src="_static/logo.png" alt="logo">\n</p>\n<img alt="b" src=\'https://x.org/b.svg\'>'
+    assert (
+        github_readme.rebase_images(text, Path("/repo"), Path("/repo/docs")) == expected
+    )
+
+
 def test_myst_syntax_inside_code_block_ignored():
     text = "````markdown\n```{note}\nText\n```\n{ref}`a`\n````\n\nUse `{ref}` roles in the docs.\n"
     assert github_readme.find_myst_only_syntax(text) == []

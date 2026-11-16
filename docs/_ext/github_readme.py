@@ -39,6 +39,10 @@ MYST_INCLUDE = re.compile(
 MARKDOWN_IMAGE = re.compile(
     r"(?P<alt>!\[[^\]]*\])\((?P<target>[^)\s]+)(?P<title>[^)]*)\)"
 )
+HTML_IMAGE = re.compile(
+    r"(?P<before><img\b[^>]*?\bsrc=)(?P<quote>[\"'])(?P<target>[^\"']+)(?P=quote)",
+    flags=re.IGNORECASE,
+)
 
 
 def github_alerts_to_myst(text: str) -> str:
@@ -99,9 +103,12 @@ def find_myst_only_syntax(text: str) -> list[tuple[int, str]]:
 
 
 def rebase_images(text: str, readme_dir: Path, doc_dir: Path) -> str:
-    """Make relative Markdown image paths of the README relative to the including document.
+    """Make relative image paths of the README relative to the including document.
 
-    Reproduces the ``:relative-images:`` option of MyST's ``{include}`` directive.
+    Reproduces the ``:relative-images:`` option of MyST's ``{include}`` directive, which only
+    handles Markdown images, and also applies it to the ``src`` of HTML ``<img>`` tags. Raw HTML is
+    copied as is to the output, so an HTML image only shows up if its file is part of the output
+    too (for example, in ``html_static_path``).
 
     Args:
         text: README content.
@@ -112,14 +119,17 @@ def rebase_images(text: str, readme_dir: Path, doc_dir: Path) -> str:
         The content with every relative image path rebased on ``doc_dir``.
     """
 
-    def _replace(match: re.Match) -> str:
-        target = match["target"]
+    def _rebase(target: str) -> str:
         if re.match(r"^([a-z][a-z0-9+.-]*:|/|#)", target, flags=re.IGNORECASE):
-            return match[0]
-        rebased = Path(os.path.relpath(readme_dir / target, doc_dir)).as_posix()
-        return f"{match['alt']}({rebased}{match['title']})"
+            return target
+        return Path(os.path.relpath(readme_dir / target, doc_dir)).as_posix()
 
-    return MARKDOWN_IMAGE.sub(_replace, text)
+    text = MARKDOWN_IMAGE.sub(
+        lambda m: f"{m['alt']}({_rebase(m['target'])}{m['title']})", text
+    )
+    return HTML_IMAGE.sub(
+        lambda m: f"{m['before']}{m['quote']}{_rebase(m['target'])}{m['quote']}", text
+    )
 
 
 def expand_readme_include(app, docname: str, source: list[str]) -> None:
