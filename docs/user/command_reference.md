@@ -611,7 +611,7 @@ Writes 'TSV' files that represent the metadata associated with elements of the p
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `--compress` | bool | False | Compress the files in .gz |
-| `-e, --pangenome_elements` | set | `['contigs', 'families', 'genomes', 'modules', 'spots', 'RGPs', 'genes']` | Specify pangenome elements for which to write metadata. default is all element with metadata. <br>Choices: `contigs`, `families`, `genomes`, `modules`, `spots`, `RGPs`, `genes` |
+| `-e, --pangenome_elements` | set | `['genes', 'RGPs', 'spots', 'families', 'genomes', 'contigs', 'modules']` | Specify pangenome elements for which to write metadata. default is all element with metadata. <br>Choices: `genes`, `RGPs`, `spots`, `families`, `genomes`, `contigs`, `modules` |
 | `-s, --metadata_sources` | str | — | Which source of metadata should be written. By default all metadata sources are included. |
 
 #### Common arguments for ppanggolin write_metadata
