@@ -255,15 +255,17 @@ def _score_ks(
     # scored before the fork, so the workers share the compiled kernels it loads
     k_scores = [score(nem_input, 0, free_dispersion, ks[0])]
     args = ((free_dispersion, k) for k in ks[1:])
-    with get_context("fork").Pool(
-        cpu, initializer=_keep_input, initargs=(nem_input,)
-    ) as pool:
-        with tqdm(
+    with (
+        get_context("fork").Pool(
+            cpu, initializer=_keep_input, initargs=(nem_input,)
+        ) as pool,
+        tqdm(
             total=len(ks), initial=1, unit="Number of partitions", disable=disable_bar
-        ) as bar:
-            for k_score in pool.imap_unordered(_score_k_worker, args):
-                k_scores.append(k_score)
-                bar.update()
+        ) as bar,
+    ):
+        for k_score in pool.imap_unordered(_score_k_worker, args):
+            k_scores.append(k_score)
+            bar.update()
     return k_scores
 
 
@@ -497,17 +499,17 @@ def _partition_in_chunks(
         nb_chunks += len(chunks)
         args = ((chunk, k, options) for chunk in chunks)
         logger.info("Launching NEM")
-        with get_context("fork").Pool(
-            cpu, initializer=keep_index, initargs=(index,)
-        ) as pool:
-            with tqdm(
-                total=len(chunks),
-                unit=" samples partitioned",
-                disable=disable_bar,
-            ) as bar:
-                for result in pool.imap_unordered(_partition_chunk_worker, args):
-                    votes.add(result.partitions)
-                    bar.update()
+        with (
+            get_context("fork").Pool(
+                cpu, initializer=keep_index, initargs=(index,)
+            ) as pool,
+            tqdm(
+                total=len(chunks), unit=" samples partitioned", disable=disable_bar
+            ) as bar,
+        ):
+            for result in pool.imap_unordered(_partition_chunk_worker, args):
+                votes.add(result.partitions)
+                bar.update()
         min_draws += 1  # if families are left to validate, draw more chunks
         logger.debug(
             f"There are {len(votes.validated)} validated families out of {len(index.fam_names)} families."

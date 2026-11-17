@@ -601,30 +601,25 @@ def _partition_samples(
     :param cpu: Number of available CPUs.
     :param disable_bar: Disable the progress bar.
     """
-    with get_context("fork").Pool(
-        cpu, initializer=keep_index, initargs=(nem_index,)
-    ) as pool:
-        logger.info(" Partitioning all samples...")
-        with tqdm(
+    logger.info(" Partitioning all samples...")
+    order = list(range(len(samples)))
+    # shuffled so that the progress bar is closer to reality
+    rng.shuffle(order)
+    args = (
+        (sample_id, [org.name for org in samples[sample_id]], k, options)
+        for sample_id in order
+    )
+    with (
+        get_context("fork").Pool(
+            cpu, initializer=keep_index, initargs=(nem_index,)
+        ) as pool,
+        tqdm(
             total=len(samples), unit="samples partitioned", disable=disable_bar
-        ) as bar:
-            order = list(range(len(samples)))
-            # shuffled so that the progress bar is closer to reality
-            rng.shuffle(order)
-            args = (
-                (
-                    sample_id,
-                    [org.name for org in samples[sample_id]],
-                    k,
-                    options,
-                )
-                for sample_id in order
-            )
-            for counts, sample_id in pool.imap_unordered(
-                _partition_sample_worker, args
-            ):
-                rows[sample_id] = {**counts, **rows[sample_id]}
-                bar.update()
+        ) as bar,
+    ):
+        for counts, sample_id in pool.imap_unordered(_partition_sample_worker, args):
+            rows[sample_id] = {**counts, **rows[sample_id]}
+            bar.update()
 
 
 def make_rarefaction_curve(
