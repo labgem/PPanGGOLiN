@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 # default libraries
-import os
 from dataclasses import dataclass
 
 # installed libraries
@@ -13,9 +12,11 @@ from threadpoolctl import threadpool_limits
 # local libraries
 from ppanggolin.nem.nem_input import NemInput
 
-# pynem 0.6.1's parallel kernels run on OpenMP, which kills workers forked after them
-if "NUMBA_THREADING_LAYER" not in os.environ:
-    numba.config.THREADING_LAYER = "forksafe"
+
+def _forksafe_layer():
+    """Use numba's fork-safe threading layer."""
+    if numba.config.THREADING_LAYER == "default":
+        numba.config.THREADING_LAYER = "forksafe"
 
 
 def set_threads(nb_threads: int):
@@ -23,6 +24,7 @@ def set_threads(nb_threads: int):
 
     :param nb_threads: Number of threads.
     """
+    _forksafe_layer()
     numba.set_num_threads(max(1, min(nb_threads, numba.config.NUMBA_NUM_THREADS)))
     threadpool_limits(nb_threads)
 
