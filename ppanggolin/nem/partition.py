@@ -578,6 +578,7 @@ def partition(
             f"genomes used) to robustly partition the graph"
         )
 
+    set_threads(cpu)
     k = options.k
     if k < 2:
         logger.info("Estimating the optimal number of partitions...")

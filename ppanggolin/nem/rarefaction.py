@@ -23,6 +23,7 @@ from tqdm import tqdm
 
 # local libraries
 from ppanggolin.formats import check_pangenome_info
+from ppanggolin.nem.model import set_threads
 from ppanggolin.nem.nem_input import (
     NemIndex,
     build_nem_index,
@@ -653,6 +654,7 @@ def make_rarefaction_curve(
     else:
         max_sampling = int(options.max_sampling)
 
+    set_threads(cpu)
     k = options.k
     if k < 3 and not options.reestimate_k:  # estimate k once and for all
         try:
