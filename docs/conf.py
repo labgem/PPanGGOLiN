@@ -14,6 +14,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "_ext"))
+
 
 def generate_command_reference(_app):
     script = (
@@ -38,7 +40,6 @@ release = (
     open(Path(__file__).resolve().parents[1] / "VERSION").read().rstrip()
 )  # Get release number in the VERSION file
 
-
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -52,8 +53,15 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx_search.extension",
     "sphinxcontrib.mermaid",
+    "github_readme",  # Local extension (_ext/): renders the GitHub README as the landing page
 ]
 
+# These extensions mirror GitHub-flavored Markdown so README.md renders the same in both places
+myst_enable_extensions = ["linkify", "strikethrough", "tasklist"]
+myst_fence_as_directive = ["mermaid"]
+myst_linkify_fuzzy_links = (
+    False  # Like GitHub, only autolink http(s):// and www. URLs, not "README.md"
+)
 
 source_suffix = {".md": "markdown"}
 
