@@ -59,19 +59,25 @@ epilog = f"""
 PPanGGOLiN ({version}) is an open-source bioinformatics tool developed by the LABGeM team, and distributed under the CeCILL Free Software License Agreement.
 """
 
+v2_epilog = """
+If you use PPanGGOLiN, please cite:
+Arnoux J et al. (2026) PPanGGOLiN V2: technical enhancement and extended functionalities for prokaryotic pangenome analysis.
+Journal of Open Source Software, 11(127), 11101. https://doi.org/10.21105/joss.11101
+"""
+
 pan_epilog = """
-For pangenome analyses, please cite:
+For pangenome analyses, please also cite:
 Gautreau G et al. (2020) PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph.
 PLOS Computational Biology 16(3): e1007732. https://doi.org/10.1371/journal.pcbi.1007732
 """
 rgp_epilog = """
-For genomic islands and spots of insertion detection, please cite:
+For genomic islands and spots of insertion detection, please also cite:
 Bazin A et al. (2020) panRGP: a pangenome-based method to predict genomic islands and explore their diversity.
 Bioinformatics, Volume 36, Issue Supplement_2, Pages i651–i658, https://doi.org/10.1093/bioinformatics/btaa792
 """
 
 mod_epilog = """
-For module prediction, please cite:
+For module prediction, please also cite:
 Bazin A et al. (2021) panModule: detecting conserved modules in the variable regions of a pangenome graph.
 bioRxiv. https://doi.org/10.1101/2021.12.06.471380
 """

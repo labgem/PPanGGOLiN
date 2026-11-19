@@ -138,6 +138,9 @@ Before reporting a bug, if possible please add the option `--verbose 2` to your 
 ## Citation
 If you use this tool for your research, please cite:
 
+Arnoux et al. (2026) **PPanGGOLiN V2**: technical enhancement and extended functionalities for prokaryotic pangenome analysis.
+Journal of Open Source Software, 11(127), 11101. <https://doi.org/10.21105/joss.11101>
+
 Gautreau G et al. (2020) **PPanGGOLiN**: Depicting microbial diversity via a partitioned pangenome graph.
 PLOS Computational Biology 16(3): e1007732. <https://doi.org/10.1371/journal.pcbi.1007732>
 

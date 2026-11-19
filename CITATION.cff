@@ -69,6 +69,38 @@ preferred-citation:
 
 references:
   - type: article
+    title: "PPanGGOLiN V2: technical enhancement and extended functionalities for prokaryotic pangenome analysis"
+    authors:
+      - family-names: Arnoux
+        given-names: Jérôme
+        orcid: https://orcid.org/0000-0003-2769-3006
+      - family-names: Mainguy
+        given-names: Jean
+        orcid: https://orcid.org/0009-0006-9160-9744
+      - family-names: Bazin
+        given-names: Adelme
+        orcid: https://orcid.org/0000-0002-5656-4708
+      - family-names: Gautreau
+        given-names: Guillaume
+        orcid: https://orcid.org/0000-0002-0970-9361
+      - family-names: Lemane
+        given-names: Téo
+        orcid: https://orcid.org/0000-0002-7210-3178
+      - family-names: Vallenet
+        given-names: David
+        orcid: https://orcid.org/0000-0001-6648-0332
+      - family-names: Calteau
+        given-names: Alexandra
+        orcid: https://orcid.org/0000-0002-5871-9347
+    journal: "Journal of Open Source Software"
+    volume: 11
+    issue: 127
+    start: 11101
+    year: 2026
+    doi: "10.21105/joss.11101"
+    url: "https://doi.org/10.21105/joss.11101"
+
+  - type: article
     title: "panRGP: a pangenome-based method to predict genomic islands and explore their diversity"
     authors:
       - family-names: Bazin

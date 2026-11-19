@@ -1,16 +1,20 @@
 # PPanGGOLiN: Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors
 
-[![Actions](https://img.shields.io/github/actions/workflow/status/labgem/PPanGGOLiN/main.yml?branch=master&label=CI&logo=github)](https://github.com/labgem/PPanGGOLiN/actions/workflows/main.yml)
-[![License](https://anaconda.org/bioconda/ppanggolin/badges/license.svg)](http://www.cecill.info/licences.fr.html)
+[![JOSS](https://joss.theoj.org/papers/10.21105/joss.11101/status.svg)](https://doi.org/10.21105/joss.11101)
+[![PLOS Comp Biol](https://img.shields.io/badge/PLOS_Comp_Biol-10.1371%2Fjournal.pcbi.1007732-blue?style=flat-square)](https://doi.org/10.1371/journal.pcbi.1007732)
+
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/ppanggolin?style=flat-square&maxAge=3600&logo=anaconda)](https://anaconda.org/bioconda/ppanggolin)
-[![PyPI version](https://badge.fury.io/py/PPanGGOLiN.svg?cache-control=no-cache)](https://pypi.org/project/PPanGGOLiN/)
+[![PyPI version](https://img.shields.io/pypi/v/PPanGGOLiN?style=flat-square&logo=pypi)](https://pypi.org/project/PPanGGOLiN/)
+[![Downloads](https://img.shields.io/conda/dn/bioconda/ppanggolin?style=flat-square&label=conda%20downloads)](https://bioconda.github.io/recipes/ppanggolin/README.html#download-stats)
+
+[![CI](https://img.shields.io/github/actions/workflow/status/labgem/PPanGGOLiN/main.yml?branch=master&label=CI&logo=github&style=flat-square)](https://github.com/labgem/PPanGGOLiN/actions/workflows/main.yml)
+[![Docs](https://img.shields.io/readthedocs/ppanggolin/latest?style=flat-square&maxAge=600)](https://ppanggolin.readthedocs.io)
 [![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat-square)](https://github.com/labgem/ppanggolin/)
 [![GitHub issues](https://img.shields.io/github/issues/labgem/ppanggolin.svg?style=flat-square&maxAge=600)](https://github.com/labgem/ppanggolin/issues)
-[![Docs](https://img.shields.io/readthedocs/ppanggolin/latest?style=flat-square&maxAge=600)](https://ppanggolin.readthedocs.io)
-[![Downloads](https://anaconda.org/bioconda/ppanggolin/badges/downloads.svg)](https://bioconda.github.io/recipes/ppanggolin/README.html#download-stats)
+[![License](https://img.shields.io/badge/license-CeCILL--2.1-green?style=flat-square)](http://www.cecill.info/licences.fr.html)
 
 **PPanGGOLiN**
-([Gautreau et al. 2020](https://doi.org/10.1371/journal.pcbi.1007732)) is a software suite used to create and manipulate prokaryotic pangenomes from a set of either genomic DNA sequences or provided genome annotations.
+([Gautreau et al. 2020](https://doi.org/10.1371/journal.pcbi.1007732); [Arnoux et al. 2026](https://doi.org/10.21105/joss.11101)) is a software suite used to create and manipulate prokaryotic pangenomes from a set of either genomic DNA sequences or provided genome annotations.
 It is designed to scale up to tens of thousands of genomes.
 It has the specificity to partition the pangenome using a statistical approach rather than using fixed thresholds which gives it the ability to work with low-quality data such as *Metagenomic Assembled Genomes (MAGs)* or *Single-cell Amplified Genomes (SAGs)* thus taking advantage of large scale environmental studies and letting users study the pangenome of uncultivable species.
 
@@ -123,6 +127,11 @@ We cannot correct bugs if we do not know about them, and will try to help you th
 
 # Citation
 If you use this tool for your research, please cite:
+
+> **PPanGGOLiN V2: technical enhancement and extended functionalities for prokaryotic pangenome analysis**
+> Arnoux et al. (2026)
+> *Journal of Open Source Software, 11(127), 11101*
+> doi: [10.21105/joss.11101](https://doi.org/10.21105/joss.11101)
 
 > **PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph**
 > Gautreau G et al. (2020)
