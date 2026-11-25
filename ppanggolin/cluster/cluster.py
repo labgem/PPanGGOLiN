@@ -33,6 +33,7 @@ from ppanggolin.formats.readBinaries import (
     check_pangenome_info,
     write_gene_sequences_from_pangenome_file,
 )
+from ppanggolin.errors import AlreadyComputedError
 from ppanggolin.formats.writeSequences import (
     write_gene_sequences_from_annotations,
     translate_genes,
@@ -49,7 +50,7 @@ def check_pangenome_former_clustering(pangenome: Pangenome, force: bool = False)
     :param force: Force to write on existing pangenome information
     """
     if pangenome.status["genesClustered"] == "inFile" and not force:
-        raise Exception(
+        raise AlreadyComputedError(
             "You are trying to cluster genes that are already clustered together. If you REALLY want to "
             "do that, use --force (it will erase everything except annotation data in your HDF5 file!)"
         )

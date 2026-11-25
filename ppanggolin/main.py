@@ -1,5 +1,6 @@
 # default libraries
 import argparse
+import logging
 import sys
 
 import ppanggolin.align
@@ -28,6 +29,7 @@ from ppanggolin import (
     rgp_epilog,
     version,
 )
+from ppanggolin.errors import PangenomeError
 from ppanggolin.utils import (
     RawTextHelpFormatterWithDefaults,
     add_common_arguments,
@@ -217,7 +219,7 @@ def cmd_line() -> argparse.Namespace:
     return args
 
 
-def main():
+def run_subcommand():
     """
     Run the command given by user and set / check some things.
 
@@ -280,6 +282,15 @@ def main():
         ppanggolin.meta.launch(args)
     elif args.subcommand == "utils":
         ppanggolin.utility.launch(args)
+
+
+def main():
+    """Run the command, reporting PPanGGOLiN's own errors without a traceback."""
+    try:
+        run_subcommand()
+    except PangenomeError as error:
+        logging.getLogger("PPanGGOLiN").error(error)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

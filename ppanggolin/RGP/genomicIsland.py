@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 # local libraries
 from ppanggolin.genome import Organism, Contig
+from ppanggolin.errors import AlreadyComputedError
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Region
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
@@ -306,7 +307,7 @@ def check_pangenome_former_rgp(pangenome: Pangenome, force: bool = False):
     :param force: Allow to force write on Pangenome file
     """
     if pangenome.status["predictedRGP"] == "inFile" and not force:
-        raise Exception(
+        raise AlreadyComputedError(
             "You are trying to predict RGPs in a pangenome that already have them predicted. "
             "If you REALLY want to do that, use --force "
             "(it will erase RGPs and every feature computed from them)."

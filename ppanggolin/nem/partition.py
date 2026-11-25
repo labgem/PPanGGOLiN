@@ -8,6 +8,9 @@ import os
 import random
 import time
 from collections import Counter, defaultdict
+from collections.abc import Iterator
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from multiprocessing import get_context
 from pathlib import Path
@@ -18,6 +21,7 @@ import plotly.offline as out_plotly
 from tqdm import tqdm
 
 # local libraries
+from ppanggolin.errors import AlreadyComputedError, PartitioningError, WorkerDiedError
 from ppanggolin.formats import check_pangenome_info, erase_pangenome, write_pangenome
 from ppanggolin.nem.model import KScore, NemResult, score, set_threads, solve
 from ppanggolin.nem.nem_input import (
@@ -54,6 +58,39 @@ def inherited_index() -> NemIndex:
     :return: The index passed to the pool's initializer.
     """
     return _worker_index
+
+
+def worker_pool(cpu: int, initializer, initargs: tuple) -> ProcessPoolExecutor:
+    """Start a pool of forked workers.
+
+    :param cpu: Number of workers.
+    :param initializer: Called in each worker at its start.
+    :param initargs: Arguments of the initializer, inherited at fork.
+    :return: The pool.
+    """
+    return ProcessPoolExecutor(
+        cpu, mp_context=get_context("fork"), initializer=initializer, initargs=initargs
+    )
+
+
+def unordered(pool: ProcessPoolExecutor, func, args) -> Iterator:
+    """Run func on each argument in the pool.
+
+    :param pool: Pool from worker_pool.
+    :param func: Function to run.
+    :param args: One argument per call.
+    :raises WorkerDiedError: If a worker died.
+    :return: The results, as they finish.
+    """
+    futures = [pool.submit(func, arg) for arg in args]
+    try:
+        for future in as_completed(futures):
+            yield future.result()
+    except BrokenProcessPool as error:
+        raise WorkerDiedError("A worker process died.") from error
+    finally:  # so that a failure does not wait for the remaining calls
+        for future in futures:
+            future.cancel()
 
 
 # the NEM input a k-scoring worker inherited at fork, set by _keep_input
@@ -256,14 +293,12 @@ def _score_ks(
     k_scores = [score(nem_input, 0, free_dispersion, ks[0])]
     args = ((free_dispersion, k) for k in ks[1:])
     with (
-        get_context("fork").Pool(
-            cpu, initializer=_keep_input, initargs=(nem_input,)
-        ) as pool,
+        worker_pool(cpu, _keep_input, (nem_input,)) as pool,
         tqdm(
             total=len(ks), initial=1, unit="Number of partitions", disable=disable_bar
         ) as bar,
     ):
-        for k_score in pool.imap_unordered(_score_k_worker, args):
+        for k_score in unordered(pool, _score_k_worker, args):
             k_scores.append(k_score)
             bar.update()
     return k_scores
@@ -437,10 +472,10 @@ def check_pangenome_former_partition(pangenome: Pangenome, force: bool = False):
 
     :param pangenome: Pangenome object.
     :param force: Allow to overwrite the pangenome file.
-    :raises Exception: If the pangenome is already partitioned and force is False.
+    :raises AlreadyComputedError: If the pangenome is already partitioned and force is False.
     """
     if pangenome.status["partitioned"] == "inFile" and not force:
-        raise Exception(
+        raise AlreadyComputedError(
             "You are trying to partition a pangenome already partitioned."
             " If you REALLY want to do that, "
             "use --force (it will erase partitions and every feature computed from them."
@@ -500,14 +535,12 @@ def _partition_in_chunks(
         args = ((chunk, k, options) for chunk in chunks)
         logger.info("Launching NEM")
         with (
-            get_context("fork").Pool(
-                cpu, initializer=keep_index, initargs=(index,)
-            ) as pool,
+            worker_pool(cpu, keep_index, (index,)) as pool,
             tqdm(
                 total=len(chunks), unit=" samples partitioned", disable=disable_bar
             ) as bar,
         ):
-            for result in pool.imap_unordered(_partition_chunk_worker, args):
+            for result in unordered(pool, _partition_chunk_worker, args):
                 votes.add(result.partitions)
                 bar.update()
         min_draws += 1  # if families are left to validate, draw more chunks
@@ -523,12 +556,12 @@ def _partition_whole(index: NemIndex, k: int, nem: NemSettings) -> dict[str, str
     :param index: NEM index of all the genomes.
     :param k: Number of partitions.
     :param nem: NEM settings.
-    :raises Exception: If NEM labels no family.
+    :raises PartitioningError: If NEM labels no family.
     :return: Label of each family.
     """
     result = partition_chunk(index, k, nem)
     if not result.partitions:
-        raise Exception(
+        raise PartitioningError(
             "Statistical partitioning does not work on your data. "
             "This usually happens because you used very few (<15) genomes."
         )
