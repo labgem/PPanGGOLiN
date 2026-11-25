@@ -87,10 +87,7 @@ def unordered(pool: ProcessPoolExecutor, func, args) -> Iterator:
         for future in as_completed(futures):
             yield future.result()
     except BrokenProcessPool as error:
-        raise WorkerDiedError(
-            "A worker process died, possibly killed for lack of memory. "
-            "Lower --cpu or give the job more memory."
-        ) from error
+        raise WorkerDiedError("A worker process died.") from error
     finally:  # so that a failure does not wait for the remaining calls
         for future in futures:
             future.cancel()
