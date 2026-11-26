@@ -762,7 +762,7 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
         required=False,
         default=2.5,
         type=float,
-        help="beta is the strength of the smoothing using the graph topology during  partitioning. "
+        help="beta is the strength of smoothing using graph topology during partitioning and when estimating K. "
         "0 will deactivate spatial smoothing.",
     )
     optional.add_argument(
