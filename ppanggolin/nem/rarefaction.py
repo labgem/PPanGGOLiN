@@ -161,6 +161,7 @@ def partition_sample(
         k = evaluate_nb_partitions(
             index=sample,
             output=None,
+            beta=options.beta,
             max_degree_smoothing=options.max_degree_smoothing,
             free_dispersion=options.free_dispersion,
             chunk_size=options.chunk_size,
@@ -665,6 +666,7 @@ def make_rarefaction_curve(
             k = evaluate_nb_partitions(
                 index=nem_index,
                 output=None,
+                beta=options.beta,
                 max_degree_smoothing=options.max_degree_smoothing,
                 free_dispersion=options.free_dispersion,
                 chunk_size=options.chunk_size,
