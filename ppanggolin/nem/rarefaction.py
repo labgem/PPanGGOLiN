@@ -19,11 +19,11 @@ import plotly.graph_objs as go
 import plotly.offline as out_plotly
 import scipy.optimize as optimization
 from pandas import DataFrame, Series, read_csv
+from pynem import set_threads
 from tqdm import tqdm
 
 # local libraries
 from ppanggolin.formats import check_pangenome_info
-from ppanggolin.nem.model import set_threads
 from ppanggolin.nem.nem_input import (
     NemIndex,
     build_nem_index,
