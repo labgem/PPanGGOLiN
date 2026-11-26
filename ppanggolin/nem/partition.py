@@ -15,11 +15,12 @@ from pathlib import Path
 # installed libraries
 import plotly.graph_objs as go
 import plotly.offline as out_plotly
+from pynem import set_threads
 from tqdm import tqdm
 
 # local libraries
 from ppanggolin.formats import check_pangenome_info, erase_pangenome, write_pangenome
-from ppanggolin.nem.model import KScore, NemResult, score, set_threads, solve
+from ppanggolin.nem.model import KScore, NemResult, score, solve
 from ppanggolin.nem.nem_input import (
     NemIndex,
     NemInput,

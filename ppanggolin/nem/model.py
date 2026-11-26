@@ -4,22 +4,11 @@
 from dataclasses import dataclass
 
 # installed libraries
-import numba
 import numpy as np
 from pynem import NEM
-from threadpoolctl import threadpool_limits
 
 # local libraries
 from ppanggolin.nem.nem_input import NemInput
-
-
-def set_threads(nb_threads: int):
-    """Let pynem's numba kernels and BLAS use at most `nb_threads` threads in this process.
-
-    :param nb_threads: Number of threads.
-    """
-    numba.set_num_threads(max(1, min(nb_threads, numba.config.NUMBA_NUM_THREADS)))
-    threadpool_limits(nb_threads)
 
 
 @dataclass
