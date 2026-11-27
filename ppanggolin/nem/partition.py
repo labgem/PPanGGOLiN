@@ -220,41 +220,42 @@ def _partition_chunk_worker(args: tuple[list[str], int, NemSettings]) -> NemResu
     return partition_chunk(subset_nem_index(inherited_index(), genomes), k, nem)
 
 
-def _score_k_worker(args: tuple[bool, int]) -> KScore:
+def _score_k_worker(args: tuple[int, NemSettings]) -> KScore:
     """Score one k on the NEM input the pool inherited.
 
-    :param args: (free_dispersion, k).
+    :param args: (k, NEM settings).
     :return: The score of k.
     """
-    free_dispersion, k = args
-    return score(_worker_input, 0, free_dispersion, k)
+    k, nem = args
+    return score(
+        _worker_input, _worker_input.scaled_beta(nem.beta), nem.free_dispersion, k
+    )
 
 
 def _score_ks(
     index: NemIndex,
     ks: range,
-    max_degree_smoothing: int,
-    free_dispersion: bool,
+    nem: NemSettings,
     cpu: int,
     disable_bar: bool,
 ) -> list[KScore]:
-    """Fit NEM without smoothing for each k.
+    """Fit NEM for each k.
 
     :param index: Index of the genomes to score k on.
     :param ks: Values of k to score.
-    :param max_degree_smoothing: Maximum degree of a family included in the smoothing.
-    :param free_dispersion: Free dispersion per genome instead of shared.
+    :param nem: NEM settings.
     :param cpu: Number of available CPUs.
     :param disable_bar: Disable the progress bar.
     :return: One score per k.
     """
-    nem_input = build_nem_input(index, max_degree_smoothing)
+    nem_input = build_nem_input(index, nem.max_degree_smoothing)
+    beta = nem_input.scaled_beta(nem.beta)
     if cpu <= 1:
-        return [score(nem_input, 0, free_dispersion, k) for k in ks]
+        return [score(nem_input, beta, nem.free_dispersion, k) for k in ks]
 
     # scored before the fork, so the workers share the compiled kernels it loads
-    k_scores = [score(nem_input, 0, free_dispersion, ks[0])]
-    args = ((free_dispersion, k) for k in ks[1:])
+    k_scores = [score(nem_input, beta, nem.free_dispersion, ks[0])]
+    args = ((k, nem) for k in ks[1:])
     with (
         get_context("fork").Pool(
             cpu, initializer=_keep_input, initargs=(nem_input,)
@@ -385,8 +386,7 @@ def evaluate_nb_partitions(
     index: NemIndex,
     *,
     output: Path | None,
-    max_degree_smoothing: int,
-    free_dispersion: bool,
+    nem: NemSettings,
     chunk_size: int,
     krange: list[int] | None,
     icl_margin: float = 0.05,
@@ -399,8 +399,7 @@ def evaluate_nb_partitions(
 
     :param index: NEM index of the genomes to estimate k on.
     :param output: Output directory, needed to draw the ICL curve.
-    :param max_degree_smoothing: Maximum degree of a family included in the smoothing.
-    :param free_dispersion: Free dispersion per genome instead of shared.
+    :param nem: NEM settings.
     :param chunk_size: Estimate k on a random chunk of this many genomes when there are more.
     :param krange: Range of k values to test.
     :param icl_margin: Margin used to select the lowest k maximizing the ICL.
@@ -417,11 +416,9 @@ def evaluate_nb_partitions(
         index = subset_nem_index(index, genomes)
 
     ks = range(krange[0] - 1, krange[1] + 1)
-    k_scores = _score_ks(
-        index, ks, max_degree_smoothing, free_dispersion, cpu, disable_bar
-    )
+    k_scores = _score_ks(index, ks, nem, cpu, disable_bar)
     bics, icls, lls = _information_criteria(
-        k_scores, len(genomes), len(index.fam_names), free_dispersion
+        k_scores, len(genomes), len(index.fam_names), nem.free_dispersion
     )
     chosen_k, best_k, max_icl_k = _select_k(icls, icl_margin)
 
@@ -585,8 +582,7 @@ def partition(
         k = evaluate_nb_partitions(
             index,
             output=output,
-            max_degree_smoothing=options.max_degree_smoothing,
-            free_dispersion=options.free_dispersion,
+            nem=options,
             chunk_size=options.chunk_size,
             krange=options.krange,
             icl_margin=options.icl_margin,
@@ -682,7 +678,7 @@ def parser_partition(parser: argparse.ArgumentParser):
         required=False,
         default=2.5,
         type=float,
-        help="beta is the strength of the smoothing using the graph topology during partitioning. "
+        help="beta is the strength of smoothing using graph topology during partitioning and when estimating K. "
         "0 will deactivate spatial smoothing.",
     )
     optional.add_argument(

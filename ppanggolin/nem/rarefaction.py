@@ -161,8 +161,7 @@ def partition_sample(
         k = evaluate_nb_partitions(
             index=sample,
             output=None,
-            max_degree_smoothing=options.max_degree_smoothing,
-            free_dispersion=options.free_dispersion,
+            nem=options,
             chunk_size=options.chunk_size,
             krange=options.krange,
             draw_icl=False,
@@ -665,8 +664,7 @@ def make_rarefaction_curve(
             k = evaluate_nb_partitions(
                 index=nem_index,
                 output=None,
-                max_degree_smoothing=options.max_degree_smoothing,
-                free_dispersion=options.free_dispersion,
+                nem=options,
                 chunk_size=options.chunk_size,
                 krange=krange,
                 draw_icl=False,
@@ -764,7 +762,7 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
         required=False,
         default=2.5,
         type=float,
-        help="beta is the strength of the smoothing using the graph topology during  partitioning. "
+        help="beta is the strength of smoothing using graph topology during partitioning and when estimating K. "
         "0 will deactivate spatial smoothing.",
     )
     optional.add_argument(

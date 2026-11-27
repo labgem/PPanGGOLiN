@@ -334,7 +334,7 @@ Partition the pangenome graph
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `-b, --beta` | float | 2.5 | beta is the strength of the smoothing using the graph topology during partitioning. 0 will deactivate spatial smoothing. |
+| `-b, --beta` | float | 2.5 | beta is the strength of smoothing using graph topology during partitioning and when estimating K. 0 will deactivate spatial smoothing. |
 | `-ms, --max_degree_smoothing` | float | 10 | max. degree of the nodes to be included in the smoothing process. |
 | `-o, --output` | Path | `ppanggolin_output_<date>_<pid>` | Output directory. |
 | `-fd, --free_dispersion` | bool | False | use if the dispersion around the centroid vector of each partition during must be free. It will be the same for all genomes by default. |
@@ -373,7 +373,7 @@ Compute the rarefaction curve of the pangenome
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `-b, --beta` | float | 2.5 | beta is the strength of the smoothing using the graph topology during  partitioning. 0 will deactivate spatial smoothing. |
+| `-b, --beta` | float | 2.5 | beta is the strength of smoothing using graph topology during partitioning and when estimating K. 0 will deactivate spatial smoothing. |
 | `--depth` | int | 30 | Number of samplings at each sampling point |
 | `--min` | int | 1 | Minimum number of genomes in a sample |
 | `--max` | float | 100 | Maximum number of genomes in a sample (if above the number of provided genomes, the provided genomes will be the maximum) |
