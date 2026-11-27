@@ -419,12 +419,13 @@ def write_regions_sequences(
             if region.organism.name != loaded_genome:
                 organism = region.organism
                 genome_sequence = read_genome_file(org_dict[organism.name], organism)
-            fasta.write(f">{region.name}\n")
-            fasta.write(
-                write_spaced_fasta(
-                    genome_sequence[region.contig.name][region.start : region.stop], 60
-                )
+                loaded_genome = organism.name
+            contig_seq = genome_sequence[region.contig.name]
+            region_seq = "".join(
+                contig_seq[start - 1 : stop] for start, stop in region.coordinates
             )
+            fasta.write(f">{region.name}\n")
+            fasta.write(write_spaced_fasta(region_seq, 60))
     logging.getLogger("PPanGGOLiN").info(
         f"Done writing the regions nucleotide sequences: "
         f"'{outname}{'.gz' if compress else ''}'"
